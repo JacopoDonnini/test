@@ -1,0 +1,7 @@
+public Class boh{
+  private int val;
+  public boh(int n){
+  this.val=n}
+  public int GetVal(){
+  return val;}
+}
