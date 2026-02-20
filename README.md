@@ -1,4 +1,4 @@
-# Parametric Vase Mesh Prototype
+# Parametric Vase Mesh Prototype OO
 
 A lightweight Python CLI to generate mathematical vase meshes (Wavefront OBJ):
 - open at top
