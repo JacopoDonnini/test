@@ -120,6 +120,7 @@ Troubleshooting if you only see source archives:
 - You can also run the workflow manually (Actions → Build executables → Run workflow) and provide an existing tag in the `tag` input (required for manual runs).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
 - For Linux/macOS assets, if double-clicking the binary does nothing, use `run-vase-generator.sh` included in the archive.
+- On Windows, if the page opens but shows "127.0.0.1 didn't send any data", check `VaseGeneratorApp.log` in your user home folder for startup/runtime errors.
 - Linux builds are produced on `ubuntu-22.04` to avoid the `GLIBC_2.38 not found` issue from newer runners.
 
 ## Recreate sample outputs
