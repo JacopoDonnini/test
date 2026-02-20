@@ -22,6 +22,9 @@ def main() -> None:
             "PyInstaller not found. Install it with: python3 -m pip install pyinstaller"
         )
 
+    sep = ";" if sys.platform.startswith("win") else ":"
+    add_data = f"{ROOT / 'gui'}{sep}gui"
+
     cmd = [
         pyinstaller,
         "--noconfirm",
@@ -31,13 +34,15 @@ def main() -> None:
         "--name",
         "VaseGeneratorApp",
         "--add-data",
-        f"{ROOT / 'gui'}:gui",
+        add_data,
         str(ROOT / "run_gui.py"),
     ]
     print("Running:", " ".join(map(str, cmd)))
     subprocess.run(cmd, cwd=ROOT, check=True)
 
-    dist = ROOT / "dist" / ("VaseGeneratorApp.exe" if sys.platform.startswith("win") else "VaseGeneratorApp")
+    dist = ROOT / "dist" / (
+        "VaseGeneratorApp.exe" if sys.platform.startswith("win") else "VaseGeneratorApp"
+    )
     print(f"Build complete: {dist}")
 
 

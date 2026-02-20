@@ -86,6 +86,23 @@ What happens when users double-click it:
 
 Tip: build on the same OS you plan to distribute to (Windows builds Windows `.exe`, etc.).
 
+### Prebuilt binaries for Windows/macOS/Linux
+
+Yes — the right way is to build one executable per OS and publish them as release artifacts.
+
+This repository now includes GitHub Actions workflow:
+- `.github/workflows/build-binaries.yml`
+
+How to use:
+1. Push a tag like `v1.0.0`
+2. GitHub Actions builds binaries on:
+   - `ubuntu-latest` → Linux binary
+   - `windows-latest` → `VaseGeneratorApp.exe`
+   - `macos-latest` → macOS binary
+3. Download artifacts from the workflow run (or attach them to a GitHub Release).
+
+> Note: cross-building all three from one machine is unreliable with PyInstaller. Native-per-OS CI is the robust approach.
+
 ## Recreate sample outputs
 
 ```bash
