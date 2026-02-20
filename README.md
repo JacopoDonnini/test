@@ -59,7 +59,7 @@ python3 run_gui.py
 Then open: `http://127.0.0.1:8000/gui/`
 
 Features:
-- Real-time 3D preview while sliders move
+- Real-time 3D preview while sliders move (no external CDN dependencies)
 - Preset selector
 - Reset to preset
 - Export current vase as OBJ from GUI
