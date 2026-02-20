@@ -1,20 +1,22 @@
 name: Build executables
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish assets to (e.g. v1.0.3)'
+        required: false
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    if: startsWith(github.ref_name, 'v') || github.event_name == 'release'
+  build-and-publish:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -23,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+          ref: ${{ github.event_name == 'push' && github.ref || github.event.inputs.tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,26 +41,18 @@ jobs:
       - name: Package binary as zip
         run: python scripts/package_binary.py --runner-os "${{ runner.os }}"
 
-      - name: Upload binary artifact
+      - name: Upload artifact for debugging
         uses: actions/upload-artifact@v4
         with:
           name: VaseGeneratorApp-${{ matrix.os }}
           path: package/*.zip
           if-no-files-found: error
 
-  release:
-    if: startsWith(github.ref_name, 'v') || github.event_name == 'release'
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-
-      - name: Publish release assets
+      - name: Publish zip to GitHub Release Assets
+        if: github.event_name == 'push' || github.event.inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
-          files: release-assets/**/*.zip
-          generate_release_notes: true
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
+          files: package/*.zip
+          append_body: true
+          fail_on_unmatched_files: true
