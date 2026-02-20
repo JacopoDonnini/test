@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Vase Generator GUI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel">
+      <h1>Parametric Vase GUI</h1>
+      <p>Move sliders to morph the vase in real time.</p>
+
+      <label>Preset
+        <select id="preset"></select>
+      </label>
+
+      <div id="controls"></div>
+
+      <div class="actions">
+        <button id="resetBtn">Reset to preset</button>
+        <button id="downloadBtn">Download OBJ</button>
+      </div>
+      <small>Top is open, bottom is closed.</small>
+    </aside>
+
+    <main>
+      <canvas id="view"></canvas>
+    </main>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
