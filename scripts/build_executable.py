@@ -30,13 +30,15 @@ def main() -> None:
         "--noconfirm",
         "--clean",
         "--onefile",
-        "--windowed",
         "--name",
         "VaseGeneratorApp",
         "--add-data",
         add_data,
-        str(ROOT / "run_gui.py"),
     ]
+    # Keep Windows as GUI app; on Linux/macOS keep console attached for clearer launch behavior.
+    if sys.platform.startswith("win"):
+        cmd.append("--windowed")
+    cmd.append(str(ROOT / "run_gui.py"))
     print("Running:", " ".join(map(str, cmd)))
     subprocess.run(cmd, cwd=ROOT, check=True)
 

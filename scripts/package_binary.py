@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Package built executable in dist/ into a zip with OS-specific name."""
+"""Package built executable in dist/ into OS-appropriate archive.
+
+- Windows: zip
+- Linux/macOS: tar.gz (preserves executable permissions)
+"""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import tarfile
 import zipfile
 
 
@@ -12,6 +17,16 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
     ap.add_argument("--runner-os", required=True, help="Value of RUNNER_OS (Linux/Windows/macOS)")
     return ap.parse_args()
+
+
+def package_zip(target: Path, out: Path) -> None:
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(target, arcname=target.name)
+
+
+def package_targz(target: Path, out: Path) -> None:
+    with tarfile.open(out, "w:gz") as tf:
+        tf.add(target, arcname=target.name)
 
 
 def main() -> None:
@@ -26,22 +41,23 @@ def main() -> None:
     runner = args.runner_os.strip().lower()
     if runner == "windows":
         target = exe
-        name = "VaseGeneratorApp-windows-latest.zip"
+        out = package / "VaseGeneratorApp-windows-latest.zip"
+        pack = package_zip
     elif runner == "linux":
         target = unix_bin
-        name = "VaseGeneratorApp-ubuntu-latest.zip"
+        out = package / "VaseGeneratorApp-ubuntu-latest.tar.gz"
+        pack = package_targz
     elif runner == "macos":
         target = unix_bin
-        name = "VaseGeneratorApp-macos-latest.zip"
+        out = package / "VaseGeneratorApp-macos-latest.tar.gz"
+        pack = package_targz
     else:
         raise SystemExit(f"Unsupported runner OS: {args.runner_os}")
 
     if not target.exists():
         raise SystemExit(f"Expected executable not found: {target}")
 
-    out = package / name
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(target, arcname=target.name)
+    pack(target, out)
     print(f"Created {out}")
 
 

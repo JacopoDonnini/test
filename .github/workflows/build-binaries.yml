@@ -45,7 +45,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VaseGeneratorApp-${{ matrix.os }}
-          path: package/*.zip
+          path: |
+            package/*.zip
+            package/*.tar.gz
           if-no-files-found: error
 
       - name: Publish zip to GitHub Release Assets
@@ -53,6 +55,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
-          files: package/*.zip
+          files: |
+            package/*.zip
+            package/*.tar.gz
           append_body: true
           fail_on_unmatched_files: true
