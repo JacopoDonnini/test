@@ -96,7 +96,7 @@ This repository now includes GitHub Actions workflow:
 How to use:
 1. Push a tag like `v1.0.0`
 2. GitHub Actions builds binaries on:
-   - `ubuntu-latest` → Linux binary zip
+   - `ubuntu-22.04` → Linux binary archive
    - `windows-latest` → Windows `.exe` zip
    - `macos-latest` → macOS binary zip
 3. Each OS build job publishes its archive directly into the GitHub Release **Assets** section (`.zip` for Windows, `.tar.gz` for Linux/macOS to preserve executable permissions).
@@ -113,12 +113,13 @@ Troubleshooting if you only see source archives:
 - Open the release and look under **Assets** for:
   - `VaseGeneratorApp-windows-latest.zip`
   - `VaseGeneratorApp-macos-latest.tar.gz`
-  - `VaseGeneratorApp-ubuntu-latest.tar.gz`
+  - `VaseGeneratorApp-ubuntu-22.04.tar.gz`
 - If missing, check the Actions run logs for failures in build/package/publish steps.
 - If the workflow fails on all three OSes, verify the tag exists and the manual run `tag` input is set (for `workflow_dispatch`).
 - You can also run the workflow manually (Actions → Build executables → Run workflow) and provide an existing tag in the `tag` input (required for manual runs).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
 - For Linux/macOS assets, if double-clicking the binary does nothing, use `run-vase-generator.sh` included in the archive.
+- Linux builds are produced on `ubuntu-22.04` to avoid the `GLIBC_2.38 not found` issue from newer runners.
 
 ## Recreate sample outputs
 

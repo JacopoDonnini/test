@@ -80,7 +80,7 @@ def main() -> None:
         pack = package_zip
     elif runner == "linux":
         target = unix_bin
-        out = package / "VaseGeneratorApp-ubuntu-latest.tar.gz"
+        out = package / "VaseGeneratorApp-ubuntu-22.04.tar.gz"
         pack = package_targz
     elif runner == "macos":
         target = unix_bin
