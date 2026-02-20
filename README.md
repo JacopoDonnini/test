@@ -118,6 +118,7 @@ Troubleshooting if you only see source archives:
 - If the workflow fails on all three OSes, verify the tag exists and the manual run `tag` input is set (for `workflow_dispatch`).
 - You can also run the workflow manually (Actions → Build executables → Run workflow) and provide an existing tag in the `tag` input (required for manual runs).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
+- For Linux/macOS assets, if double-clicking the binary does nothing, use `run-vase-generator.sh` included in the archive.
 
 ## Recreate sample outputs
 

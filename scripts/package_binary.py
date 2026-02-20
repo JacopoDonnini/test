@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Package built executable in dist/ into OS-appropriate archive.
 
-- Windows: zip
-- Linux/macOS: tar.gz (preserves executable permissions)
+- Windows: zip with exe
+- Linux/macOS: tar.gz with executable + helper launch script
 """
 
 from __future__ import annotations
@@ -10,7 +10,27 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import tarfile
+import tempfile
 import zipfile
+
+
+UNIX_LAUNCHER = """#!/usr/bin/env bash
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP="$HERE/VaseGeneratorApp"
+if [[ ! -x "$APP" ]]; then
+  chmod +x "$APP" || true
+fi
+"$APP"
+"""
+
+UNIX_README = """VaseGeneratorApp (Linux/macOS)
+
+If double-clicking the binary does nothing, run the helper script:
+  ./run-vase-generator.sh
+
+This script starts the local server and attempts to open your browser.
+"""
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,8 +45,23 @@ def package_zip(target: Path, out: Path) -> None:
 
 
 def package_targz(target: Path, out: Path) -> None:
-    with tarfile.open(out, "w:gz") as tf:
-        tf.add(target, arcname=target.name)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        app = tmp / "VaseGeneratorApp"
+        app.write_bytes(target.read_bytes())
+        app.chmod(0o755)
+
+        launcher = tmp / "run-vase-generator.sh"
+        launcher.write_text(UNIX_LAUNCHER, encoding="utf-8")
+        launcher.chmod(0o755)
+
+        readme = tmp / "README-Linux-macOS.txt"
+        readme.write_text(UNIX_README, encoding="utf-8")
+
+        with tarfile.open(out, "w:gz") as tf:
+            tf.add(app, arcname=app.name)
+            tf.add(launcher, arcname=launcher.name)
+            tf.add(readme, arcname=readme.name)
 
 
 def main() -> None:

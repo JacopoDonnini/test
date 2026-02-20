@@ -11,6 +11,7 @@ from pathlib import Path
 import argparse
 import os
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -43,6 +44,36 @@ def parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
+def open_browser_best_effort(url: str) -> bool:
+    """Try multiple mechanisms so Linux desktop launches are more reliable."""
+    try:
+        if webbrowser.open(url):
+            return True
+    except Exception:
+        pass
+
+    cmds: list[list[str]] = []
+    if sys.platform.startswith("linux"):
+        cmds.append(["xdg-open", url])
+    elif sys.platform == "darwin":
+        cmds.append(["open", url])
+    elif sys.platform.startswith("win"):
+        # os.startfile is often most reliable on Windows.
+        try:
+            os.startfile(url)  # type: ignore[attr-defined]
+            return True
+        except Exception:
+            pass
+
+    for cmd in cmds:
+        try:
+            subprocess.Popen(cmd)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def main() -> None:
     args = parse_args()
     root = app_root()
@@ -58,7 +89,15 @@ def main() -> None:
     print(f"Open: {url}")
 
     if not args.no_browser:
-        threading.Thread(target=lambda: (time.sleep(0.4), webbrowser.open(url)), daemon=True).start()
+        def open_with_retry() -> None:
+            time.sleep(0.4)
+            ok = open_browser_best_effort(url)
+            if not ok:
+                # keep visible hint for double-click launches
+                print("Could not auto-open browser. Please open this URL manually:")
+                print(url)
+
+        threading.Thread(target=open_with_retry, daemon=True).start()
 
     try:
         server.serve_forever()
