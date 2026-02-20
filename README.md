@@ -48,6 +48,22 @@ r(\theta,z)=r_0(z)\left[1 + A_w E(z)\left(\cos(k\theta + \phi(z)) + S\sin(k_2\th
 
 Bottom faces are triangulated to close the mesh; top ring is left open.
 
+## GUI (live sliders + real-time preview)
+
+Run:
+
+```bash
+python3 run_gui.py
+```
+
+Then open: `http://127.0.0.1:8000/gui/`
+
+Features:
+- Real-time 3D preview while sliders move
+- Preset selector
+- Reset to preset
+- Export current vase as OBJ from GUI
+
 ## Recreate sample outputs
 
 ```bash
