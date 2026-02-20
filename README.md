@@ -107,6 +107,15 @@ Important:
 
 > Note: cross-building all three from one machine is unreliable with PyInstaller. Native-per-OS CI is the robust approach.
 
+Troubleshooting if you only see source archives:
+- GitHub always shows **Source code (zip/tar.gz)**; those are not app binaries.
+- Wait for the **Build executables** workflow to finish successfully.
+- Open the release and look under **Assets** for:
+  - `VaseGeneratorApp-windows-latest.zip`
+  - `VaseGeneratorApp-macos-latest.zip`
+  - `VaseGeneratorApp-ubuntu-latest.zip`
+- If missing, check the Actions run logs for failures in build/package steps.
+
 ## Recreate sample outputs
 
 ```bash
