@@ -12,7 +12,6 @@ import json
 import math
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable
 
 
 @dataclass
@@ -71,6 +70,10 @@ def radius(theta: float, z: float, p: VaseParams) -> float:
 
 
 def generate_vase_mesh(p: VaseParams, n_theta: int = 180, n_z: int = 200):
+    if n_theta < 3:
+        raise ValueError("n_theta must be >= 3")
+    if n_z < 2:
+        raise ValueError("n_z must be >= 2")
     vertices: list[tuple[float, float, float]] = []
     faces: list[tuple[int, int, int]] = []
 
