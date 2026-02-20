@@ -64,6 +64,28 @@ Features:
 - Reset to preset
 - Export current vase as OBJ from GUI
 
+## Single executable build (for sharing)
+
+Good news: this does **not** require a big code change.
+
+You can package the current app into one double-clickable executable with PyInstaller:
+
+```bash
+python3 -m pip install pyinstaller
+python3 scripts/build_executable.py
+```
+
+Output:
+- Windows: `dist/VaseGeneratorApp.exe`
+- Linux/macOS: `dist/VaseGeneratorApp`
+
+What happens when users double-click it:
+- local server starts
+- browser opens automatically at the GUI
+- no manual terminal command needed
+
+Tip: build on the same OS you plan to distribute to (Windows builds Windows `.exe`, etc.).
+
 ## Recreate sample outputs
 
 ```bash
