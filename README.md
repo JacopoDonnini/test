@@ -115,7 +115,8 @@ Troubleshooting if you only see source archives:
   - `VaseGeneratorApp-macos-latest.tar.gz`
   - `VaseGeneratorApp-ubuntu-latest.tar.gz`
 - If missing, check the Actions run logs for failures in build/package/publish steps.
-- You can also run the workflow manually (Actions → Build executables → Run workflow) and provide an existing tag in the `tag` input.
+- If the workflow fails on all three OSes, verify the tag exists and the manual run `tag` input is set (for `workflow_dispatch`).
+- You can also run the workflow manually (Actions → Build executables → Run workflow) and provide an existing tag in the `tag` input (required for manual runs).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
 
 ## Recreate sample outputs

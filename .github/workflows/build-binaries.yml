@@ -14,7 +14,31 @@ permissions:
   contents: write
 
 jobs:
-  build-and-publish:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      ref: ${{ steps.vars.outputs.ref }}
+    steps:
+      - id: vars
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "For workflow_dispatch you must provide 'tag' input (e.g. v1.0.4)." >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -22,10 +46,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout
+      - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,10 +62,10 @@ jobs:
       - name: Build app executable
         run: python scripts/build_executable.py
 
-      - name: Package binary as zip
+      - name: Package binary archive
         run: python scripts/package_binary.py --runner-os "${{ runner.os }}"
 
-      - name: Upload artifact for debugging
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: VaseGeneratorApp-${{ matrix.os }}
@@ -50,13 +74,19 @@ jobs:
             package/*.tar.gz
           if-no-files-found: error
 
-      - name: Publish zip to GitHub Release Assets
-        if: github.event_name == 'push' || github.event.inputs.tag != ''
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all built archives
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Publish archives to release assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
-          files: |
-            package/*.zip
-            package/*.tar.gz
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: release-assets/**/*
           append_body: true
           fail_on_unmatched_files: true
