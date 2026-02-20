@@ -1,0 +1,55 @@
+name: Build Windows executable
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional existing release tag (e.g. v1.0.6). If empty, only Actions artifact is uploaded.'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build executable
+        run: python scripts/build_executable.py
+
+      - name: Package Windows zip
+        shell: bash
+        run: |
+          mkdir -p package
+          cp dist/VaseGeneratorApp.exe package/
+          cd package
+          powershell -Command "Compress-Archive -Path VaseGeneratorApp.exe -DestinationPath VaseGeneratorApp-windows-latest.zip -Force"
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VaseGeneratorApp-windows-latest
+          path: package/VaseGeneratorApp-windows-latest.zip
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release assets
+        if: inputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: package/VaseGeneratorApp-windows-latest.zip
+          append_body: true
+          fail_on_unmatched_files: true

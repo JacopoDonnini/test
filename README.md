@@ -124,6 +124,18 @@ Troubleshooting if you only see source archives:
 - On Windows, if the page opens but shows "127.0.0.1 didn't send any data", check `VaseGeneratorApp.log` in your user home folder for startup/runtime errors.
 - Linux builds are produced on `ubuntu-22.04` to avoid the `GLIBC_2.38 not found` issue from newer runners.
 
+### Windows-only emergency build (manual, independent)
+
+If you urgently need only the Windows app, use workflow:
+- `.github/workflows/build-windows-exe.yml`
+
+How to run:
+1. Go to **Actions → Build Windows executable → Run workflow**
+2. Leave `tag` empty to just get the `.zip` from Actions artifacts
+3. Or set `tag` (existing release tag) to also attach it to Release assets
+
+This path is independent from Linux/macOS and cannot be blocked by their failures.
+
 ## Recreate sample outputs
 
 ```bash
