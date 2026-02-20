@@ -63,6 +63,7 @@ Features:
 - Preset selector
 - Reset to preset
 - Export current vase as OBJ from GUI
+- Mesh resolution controls (`n_theta`, `n_z`) to increase triangle count and smoothness
 
 ## Single executable build (for sharing)
 

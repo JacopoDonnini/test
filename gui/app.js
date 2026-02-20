@@ -7,6 +7,11 @@ const presets = {
   minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0 },
 };
 
+const resolutionSliders = [
+  ['n_theta', 48, 320, 1],
+  ['n_z', 64, 360, 1],
+];
+
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
@@ -14,8 +19,7 @@ const sliders = [
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', 0, 1, 0.02], ['seed_phase', 0, 6.2832, 0.01],
 ];
 
-const nTheta = 96;
-const nZ = 120;
+let meshResolution = { n_theta: 160, n_z: 200 };
 let params = { ...presets.spiral_ribbed };
 let meshData = null;
 let angleY = 0.5;
@@ -51,6 +55,9 @@ function radius(th, z, p) {
 function buildMesh(p) {
   const verts = [];
   const faces = [];
+  const nTheta = Math.max(8, Math.floor(meshResolution.n_theta));
+  const nZ = Math.max(8, Math.floor(meshResolution.n_z));
+
   for (let iz = 0; iz <= nZ; iz++) {
     const z01 = iz / nZ;
     const z = z01 * p.height;
@@ -163,6 +170,33 @@ function addControl(name, min, max, step) {
   document.getElementById('controls').appendChild(wrap);
 }
 
+function addResolutionControl(name, min, max, step) {
+  const wrap = document.createElement('div');
+  wrap.className = 'control';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lbl = document.createElement('span'); lbl.textContent = name;
+  const value = document.createElement('span');
+  row.append(lbl, value);
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(meshResolution[name]);
+  value.textContent = String(meshResolution[name]);
+
+  input.addEventListener('input', () => {
+    meshResolution[name] = Number.parseInt(input.value, 10);
+    value.textContent = String(meshResolution[name]);
+    rebuildAndDraw();
+  });
+
+  wrap.append(row, input);
+  document.getElementById('controls').appendChild(wrap);
+}
+
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
@@ -175,6 +209,7 @@ presetEl.value = 'spiral_ribbed';
 function reloadSliders() {
   const controls = document.getElementById('controls');
   controls.innerHTML = '';
+  resolutionSliders.forEach(s => addResolutionControl(...s));
   sliders.forEach(s => addControl(...s));
 }
 
