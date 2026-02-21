@@ -30,13 +30,8 @@ jobs:
       - name: Build executable
         run: python scripts/build_executable.py
 
-      - name: Package Windows zip
-        shell: bash
-        run: |
-          mkdir -p package
-          cp dist/VaseGeneratorApp.exe package/
-          cd package
-          powershell -Command "Compress-Archive -Path VaseGeneratorApp.exe -DestinationPath VaseGeneratorApp-windows-latest.zip -Force"
+      - name: Package Windows archive
+        run: python scripts/package_binary.py --runner-os Windows
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4

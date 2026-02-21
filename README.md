@@ -56,6 +56,14 @@ Run:
 python3 run_gui.py
 ```
 
+This now opens the GUI directly via `file://.../gui/index.html` (no localhost server needed).
+
+If you explicitly want localhost mode:
+
+```bash
+python3 run_gui.py --serve
+```
+
 Then open: `http://127.0.0.1:8000/gui/`
 
 Features:
@@ -121,7 +129,8 @@ Troubleshooting if you only see source archives:
 - If you want files attached to a GitHub Release, run manually with the `tag` input filled (existing `v*` tag).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
 - For Linux/macOS assets, if double-clicking the binary does nothing, use `run-vase-generator.sh` included in the archive.
-- On Windows, if the page opens but shows "127.0.0.1 didn't send any data", check `VaseGeneratorApp.log` in your user home folder for startup/runtime errors.
+- On Windows, if browser showed `ERR_EMPTY_RESPONSE`, use the latest build: it opens `file://.../gui/index.html` directly by default (no localhost dependency).
+- If using `--serve` and it fails, check `VaseGeneratorApp.log` in your home folder for startup/runtime errors.
 - Linux builds are produced on `ubuntu-22.04` to avoid the `GLIBC_2.38 not found` issue from newer runners.
 
 ### Windows-only emergency build (manual, independent)

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Serve the vase GUI locally and optionally open it in the default browser.
+"""Launch the vase GUI locally.
 
-Works both in source mode and when bundled as a single executable (PyInstaller).
+Default behavior (most reliable for desktop users):
+- opens gui/index.html directly as a file:// URL (no localhost server needed)
+
+Optional behavior:
+- --serve : runs local HTTP server and opens http://127.0.0.1:<port>/gui/
 """
 
 from __future__ import annotations
@@ -22,7 +26,6 @@ import webbrowser
 
 
 def app_root() -> Path:
-    # PyInstaller onefile extracts bundled files under sys._MEIPASS.
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
     return Path(__file__).resolve().parent
@@ -52,27 +55,16 @@ def windows_message_box(title: str, message: str) -> None:
         pass
 
 
-def find_open_port(host: str, preferred: int) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.bind((host, preferred))
-            return preferred
-        except OSError:
-            sock.bind((host, 0))
-            return sock.getsockname()[1]
-
-
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Run local vase GUI server.")
-    ap.add_argument("--host", default="127.0.0.1", help="Host interface to bind")
-    ap.add_argument("--port", type=int, default=8000, help="Preferred port")
+    ap = argparse.ArgumentParser(description="Run local vase GUI launcher.")
+    ap.add_argument("--host", default="127.0.0.1", help="Host interface to bind (serve mode)")
+    ap.add_argument("--port", type=int, default=8000, help="Preferred port (serve mode)")
     ap.add_argument("--no-browser", action="store_true", help="Do not auto-open browser")
+    ap.add_argument("--serve", action="store_true", help="Use local HTTP server instead of file:// launch")
     return ap.parse_args()
 
 
 def open_browser_best_effort(url: str) -> bool:
-    """Try multiple mechanisms so Linux/Windows desktop launches are more reliable."""
     try:
         if webbrowser.open(url):
             return True
@@ -85,7 +77,6 @@ def open_browser_best_effort(url: str) -> bool:
     elif sys.platform == "darwin":
         cmds.append(["open", url])
     elif sys.platform.startswith("win"):
-        # os.startfile is often most reliable on Windows.
         try:
             os.startfile(url)  # type: ignore[attr-defined]
             return True
@@ -101,6 +92,17 @@ def open_browser_best_effort(url: str) -> bool:
     return False
 
 
+def find_open_port(host: str, preferred: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, preferred))
+            return preferred
+        except OSError:
+            sock.bind((host, 0))
+            return sock.getsockname()[1]
+
+
 def wait_until_serving(url: str, timeout_s: float = 8.0) -> bool:
     deadline = time.time() + timeout_s
     while time.time() < deadline:
@@ -113,15 +115,29 @@ def wait_until_serving(url: str, timeout_s: float = 8.0) -> bool:
     return False
 
 
-def main() -> None:
-    configure_logging()
-    args = parse_args()
-    root = app_root()
+def launch_file_mode(root: Path, no_browser: bool) -> None:
+    index = root / "gui" / "index.html"
+    if not index.exists():
+        msg = f"GUI file not found: {index}\nLog: {log_path()}"
+        logging.error(msg)
+        windows_message_box("VaseGeneratorApp startup error", msg)
+        raise FileNotFoundError(msg)
 
-    host = args.host
-    port = find_open_port(host, args.port)
+    url = index.resolve().as_uri()
+    logging.info("Opening file mode URL: %s", url)
+    print(f"Open: {url}")
+
+    if not no_browser:
+        ok = open_browser_best_effort(url)
+        if not ok:
+            msg = f"Could not auto-open browser. Open this file manually:\n{index}"
+            logging.error(msg)
+            windows_message_box("VaseGeneratorApp browser error", msg)
+
+
+def launch_server_mode(root: Path, host: str, port_pref: int, no_browser: bool) -> None:
+    port = find_open_port(host, port_pref)
     url = f"http://{host}:{port}/gui/"
-
     handler = partial(SimpleHTTPRequestHandler, directory=str(root))
 
     try:
@@ -137,8 +153,7 @@ def main() -> None:
     print(f"Serving GUI from: {root}")
     print(f"Open: {url}")
 
-    if not args.no_browser:
-
+    if not no_browser:
         def open_with_retry() -> None:
             ready = wait_until_serving(url)
             if not ready:
@@ -154,15 +169,19 @@ def main() -> None:
         server.serve_forever()
     except KeyboardInterrupt:
         print("Stopping server...")
-    except Exception:
-        logging.exception("Unhandled server error")
-        windows_message_box(
-            "VaseGeneratorApp runtime error",
-            f"The local web server crashed.\nSee log: {log_path()}",
-        )
-        raise
     finally:
         server.server_close()
+
+
+def main() -> None:
+    configure_logging()
+    args = parse_args()
+    root = app_root()
+
+    if args.serve:
+        launch_server_mode(root, args.host, args.port, args.no_browser)
+    else:
+        launch_file_mode(root, args.no_browser)
 
 
 if __name__ == "__main__":
