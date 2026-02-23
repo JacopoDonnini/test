@@ -23,12 +23,23 @@ const sliders = [
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
 ];
 
+const MAX_PREVIEW_TRIANGLES = 180000;
+const MAX_INTERACTIVE_TRIANGLES = 70000;
+
 let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let params = { ...presets.spiral_ribbed };
-let meshData = null;
+let meshPreview = null;
+let meshInteractive = null;
+
 let angleY = 0.5;
 let angleX = -0.25;
+let dragging = false;
+let lastX = 0;
+let lastY = 0;
+
+let drawRequested = false;
+let interactiveRequested = false;
 
 const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
@@ -57,11 +68,29 @@ function radius(th, z, p) {
   return Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
 }
 
-function buildMesh(p) {
+function effectiveResolution(maxTriangles) {
+  let nTheta = Math.max(8, Math.floor(meshResolution.n_theta));
+  let nZ = Math.max(8, Math.floor(meshResolution.n_z));
+  const tri = () => 2 * nTheta * nZ + nTheta;
+
+  if (tri() <= maxTriangles) return { nTheta, nZ };
+
+  const ratio = nTheta / nZ;
+  const scaledZ = Math.sqrt(maxTriangles / (2 * Math.max(1e-6, ratio)));
+  nZ = Math.max(16, Math.floor(scaledZ));
+  nTheta = Math.max(16, Math.floor(nZ * ratio));
+
+  while (tri() > maxTriangles && nTheta > 16 && nZ > 16) {
+    if (nTheta > nZ) nTheta -= 1;
+    else nZ -= 1;
+  }
+
+  return { nTheta, nZ };
+}
+
+function buildMesh(p, nTheta, nZ) {
   const verts = [];
   const faces = [];
-  const nTheta = Math.max(8, Math.floor(meshResolution.n_theta));
-  const nZ = Math.max(8, Math.floor(meshResolution.n_z));
 
   for (let iz = 0; iz <= nZ; iz++) {
     const z01 = iz / nZ;
@@ -72,6 +101,7 @@ function buildMesh(p) {
       verts.push([r * Math.cos(th), r * Math.sin(th), z]);
     }
   }
+
   const idx = (it, iz) => iz * nTheta + ((it % nTheta + nTheta) % nTheta);
   for (let iz = 0; iz < nZ; iz++) {
     for (let it = 0; it < nTheta; it++) {
@@ -79,10 +109,11 @@ function buildMesh(p) {
       faces.push([a, c, b], [b, c, d]);
     }
   }
+
   const bottomCenter = verts.length;
   verts.push([0, 0, 0]);
   for (let it = 0; it < nTheta; it++) faces.push([bottomCenter, idx(it + 1, 0), idx(it, 0)]);
-  return { verts, faces };
+  return { verts, faces, nTheta, nZ };
 }
 
 function rotate(v) {
@@ -95,16 +126,18 @@ function rotate(v) {
   return [x1, y1 * cx - z1 * sx, y1 * sx + z1 * cx];
 }
 
-function draw() {
+function draw(interactive = false) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w; canvas.height = h;
   }
   ctx.fillStyle = '#101114';
   ctx.fillRect(0, 0, w, h);
-  if (!meshData) return;
 
-  const transformed = meshData.verts.map(v => rotate(v));
+  const mesh = interactive ? (meshInteractive || meshPreview) : meshPreview;
+  if (!mesh) return;
+
+  const transformed = mesh.verts.map(v => rotate(v));
   const xs = transformed.map(v => v[0]);
   const ys = transformed.map(v => v[1]);
   const zs = transformed.map(v => v[2]);
@@ -120,53 +153,79 @@ function draw() {
   const fitScale = 0.86 * Math.min(w / spanX, h / spanY);
   const scale = fitScale * viewState.zoom;
 
-  const projected = transformed.map(([x, y, z]) => {
-    return [
-      w * 0.52 + (x - cx) * scale,
-      h * 0.52 - (y - cy) * scale,
-      z - cz,
-    ];
-  });
+  const projected = transformed.map(([x, y, z]) => [
+    w * 0.52 + (x - cx) * scale,
+    h * 0.52 - (y - cy) * scale,
+    z - cz,
+  ]);
 
   const light = [0.35, -0.45, 0.82];
   const lmag = Math.hypot(light[0], light[1], light[2]);
   const lx = light[0] / lmag, ly = light[1] / lmag, lz = light[2] / lmag;
 
-  const tris = meshData.faces.map(face => {
-    const t0 = transformed[face[0]], t1 = transformed[face[1]], t2 = transformed[face[2]];
+  const bucketCount = 96;
+  const buckets = Array.from({ length: bucketCount }, () => []);
+  let dMin = Infinity, dMax = -Infinity;
+  const triData = [];
+
+  for (const face of mesh.faces) {
+    const a = face[0], b = face[1], c = face[2];
+    const t0 = transformed[a], t1 = transformed[b], t2 = transformed[c];
     const ux = t1[0] - t0[0], uy = t1[1] - t0[1], uz = t1[2] - t0[2];
     const vx = t2[0] - t0[0], vy = t2[1] - t0[1], vz = t2[2] - t0[2];
     const nx = uy * vz - uz * vy;
     const ny = uz * vx - ux * vz;
     const nz = ux * vy - uy * vx;
     const nmag = Math.max(1e-6, Math.hypot(nx, ny, nz));
-    const ndotl = Math.abs((nx / nmag) * lx + (ny / nmag) * ly + (nz / nmag) * lz); // two-sided
-    const d = (projected[face[0]][2] + projected[face[1]][2] + projected[face[2]][2]) / 3;
-    return { face, d, ndotl };
-  }).sort((a, b) => a.d - b.d);
+    const ndotl = Math.abs((nx / nmag) * lx + (ny / nmag) * ly + (nz / nmag) * lz);
+    const d = (projected[a][2] + projected[b][2] + projected[c][2]) / 3;
+    dMin = Math.min(dMin, d);
+    dMax = Math.max(dMax, d);
+    triData.push({ a, b, c, d, ndotl });
+  }
 
-  for (const t of tris) {
-    const [a, b, c] = t.face;
-    const p0 = projected[a], p1 = projected[b], p2 = projected[c];
+  const spanD = Math.max(1e-6, dMax - dMin);
+  for (const t of triData) {
+    const bi = Math.max(0, Math.min(bucketCount - 1, Math.floor(((t.d - dMin) / spanD) * (bucketCount - 1))));
+    buckets[bi].push(t);
+  }
 
-    const ambient = 0.32;
-    const diffuse = 0.68 * t.ndotl;
-    const shade = Math.max(0.12, Math.min(0.98, ambient + diffuse));
-    const r = Math.floor(205 * shade), g = Math.floor(183 * shade), bl = Math.floor(159 * shade);
-
-    ctx.fillStyle = `rgb(${r},${g},${bl})`;
-    ctx.beginPath();
-    ctx.moveTo(p0[0], p0[1]);
-    ctx.lineTo(p1[0], p1[1]);
-    ctx.lineTo(p2[0], p2[1]);
-    ctx.closePath();
-    ctx.fill();
+  for (let bi = 0; bi < bucketCount; bi++) {
+    const bucket = buckets[bi];
+    for (const t of bucket) {
+      const p0 = projected[t.a], p1 = projected[t.b], p2 = projected[t.c];
+      const ambient = 0.32;
+      const diffuse = 0.68 * t.ndotl;
+      const shade = Math.max(0.12, Math.min(0.98, ambient + diffuse));
+      const r = Math.floor(205 * shade), g = Math.floor(183 * shade), bl = Math.floor(159 * shade);
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
+      ctx.beginPath();
+      ctx.moveTo(p0[0], p0[1]);
+      ctx.lineTo(p1[0], p1[1]);
+      ctx.lineTo(p2[0], p2[1]);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 }
 
-function rebuildAndDraw() {
-  meshData = buildMesh(params);
-  draw();
+function scheduleDraw(interactive = false) {
+  interactiveRequested = interactiveRequested || interactive;
+  if (drawRequested) return;
+  drawRequested = true;
+  requestAnimationFrame(() => {
+    draw(interactiveRequested);
+    drawRequested = false;
+    interactiveRequested = false;
+  });
+}
+
+function rebuildMeshes() {
+  const previewRes = effectiveResolution(MAX_PREVIEW_TRIANGLES);
+  const interactiveRes = effectiveResolution(MAX_INTERACTIVE_TRIANGLES);
+  meshPreview = buildMesh(params, previewRes.nTheta, previewRes.nZ);
+  meshInteractive = buildMesh(params, interactiveRes.nTheta, interactiveRes.nZ);
+  scheduleDraw(false);
 }
 
 function addControl(name, min, max, step) {
@@ -189,7 +248,7 @@ function addControl(name, min, max, step) {
   input.addEventListener('input', () => {
     params[name] = name === 'waves' ? Number.parseInt(input.value, 10) : Number(input.value);
     value.textContent = String(params[name]);
-    rebuildAndDraw();
+    rebuildMeshes();
   });
   wrap.append(row, input);
   document.getElementById('controls').appendChild(wrap);
@@ -215,7 +274,7 @@ function addResolutionControl(name, min, max, step) {
   input.addEventListener('input', () => {
     meshResolution[name] = Number.parseInt(input.value, 10);
     value.textContent = String(meshResolution[name]);
-    rebuildAndDraw();
+    rebuildMeshes();
   });
 
   wrap.append(row, input);
@@ -242,7 +301,7 @@ function addViewControl(name, min, max, step) {
   input.addEventListener('input', () => {
     viewState[name] = Number(input.value);
     value.textContent = Number(viewState[name]).toFixed(2);
-    draw();
+    scheduleDraw(dragging);
   });
 
   wrap.append(row, input);
@@ -269,20 +328,23 @@ function reloadSliders() {
 presetEl.addEventListener('change', () => {
   params = { ...presets[presetEl.value] };
   reloadSliders();
-  rebuildAndDraw();
+  rebuildMeshes();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   params = { ...presets[presetEl.value] };
   reloadSliders();
-  rebuildAndDraw();
+  rebuildMeshes();
 });
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
-  if (!meshData) return;
+  const reqTheta = Math.max(8, Math.floor(meshResolution.n_theta));
+  const reqZ = Math.max(8, Math.floor(meshResolution.n_z));
+  const full = buildMesh(params, reqTheta, reqZ);
+
   const lines = ['# Generated by GUI'];
-  for (const [x, y, z] of meshData.verts) lines.push(`v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}`);
-  for (const [a, b, c] of meshData.faces) lines.push(`f ${a + 1} ${b + 1} ${c + 1}`);
+  for (const [x, y, z] of full.verts) lines.push(`v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}`);
+  for (const [a, b, c] of full.faces) lines.push(`f ${a + 1} ${b + 1} ${c + 1}`);
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -291,32 +353,38 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   URL.revokeObjectURL(link.href);
 });
 
-let dragging = false;
-let lastX = 0, lastY = 0;
-canvas.addEventListener('mousedown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  scheduleDraw(false);
+});
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
   const dx = e.clientX - lastX;
   const dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
+  lastX = e.clientX;
+  lastY = e.clientY;
   angleY += dx * 0.01;
   angleX = Math.max(-1.2, Math.min(0.35, angleX + dy * 0.01));
-  draw();
+  scheduleDraw(true);
 });
 
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   const f = Math.exp(-e.deltaY * 0.0012);
   viewState.zoom = Math.max(0.35, Math.min(3.0, viewState.zoom * f));
-  const zoomLabel = document.querySelector('.control .row span:last-child');
-  if (zoomLabel) zoomLabel.textContent = Number(viewState.zoom).toFixed(2);
   const zoomSlider = document.querySelector('input[type="range"]');
   if (zoomSlider) zoomSlider.value = String(viewState.zoom);
-  draw();
+  const zoomLabel = document.querySelector('.control .row span:last-child');
+  if (zoomLabel) zoomLabel.textContent = Number(viewState.zoom).toFixed(2);
+  scheduleDraw(true);
 }, { passive: false });
 
-window.addEventListener('resize', draw);
+window.addEventListener('resize', () => scheduleDraw(false));
 
 reloadSliders();
-rebuildAndDraw();
+rebuildMeshes();
