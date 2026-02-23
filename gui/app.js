@@ -12,6 +12,10 @@ const resolutionSliders = [
   ['n_z', 64, 360, 1],
 ];
 
+const viewSliders = [
+  ['zoom', 0.35, 3.0, 0.01],
+];
+
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
@@ -20,6 +24,7 @@ const sliders = [
 ];
 
 let meshResolution = { n_theta: 160, n_z: 200 };
+let viewState = { zoom: 1.0 };
 let params = { ...presets.spiral_ribbed };
 let meshData = null;
 let angleY = 0.5;
@@ -100,35 +105,55 @@ function draw() {
   if (!meshData) return;
 
   const transformed = meshData.verts.map(v => rotate(v));
-  const zMin = Math.min(...transformed.map(v => v[2]));
-  const zMax = Math.max(...transformed.map(v => v[2]));
-  const centerZ = (zMin + zMax) * 0.5;
+  const xs = transformed.map(v => v[0]);
+  const ys = transformed.map(v => v[1]);
+  const zs = transformed.map(v => v[2]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const cx = (minX + maxX) * 0.5;
+  const cy = (minY + maxY) * 0.5;
+  const cz = (minZ + maxZ) * 0.5;
 
-  const scale = Math.min(w, h) * 0.012;
-  const cameraZ = 360;
+  const spanX = Math.max(1e-6, maxX - minX);
+  const spanY = Math.max(1e-6, maxY - minY);
+  const fitScale = 0.86 * Math.min(w / spanX, h / spanY);
+  const scale = fitScale * viewState.zoom;
+
   const projected = transformed.map(([x, y, z]) => {
-    const depth = cameraZ - (z - centerZ);
-    const f = 220 / Math.max(30, depth);
-    return [w * 0.52 + x * scale * f, h * 0.82 - y * scale * f, depth];
+    return [
+      w * 0.52 + (x - cx) * scale,
+      h * 0.52 - (y - cy) * scale,
+      z - cz,
+    ];
   });
 
+  const light = [0.35, -0.45, 0.82];
+  const lmag = Math.hypot(light[0], light[1], light[2]);
+  const lx = light[0] / lmag, ly = light[1] / lmag, lz = light[2] / lmag;
+
   const tris = meshData.faces.map(face => {
-    const p0 = projected[face[0]], p1 = projected[face[1]], p2 = projected[face[2]];
-    const d = (p0[2] + p1[2] + p2[2]) / 3;
-    return { face, d };
-  }).sort((a, b) => b.d - a.d);
+    const t0 = transformed[face[0]], t1 = transformed[face[1]], t2 = transformed[face[2]];
+    const ux = t1[0] - t0[0], uy = t1[1] - t0[1], uz = t1[2] - t0[2];
+    const vx = t2[0] - t0[0], vy = t2[1] - t0[1], vz = t2[2] - t0[2];
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    const nmag = Math.max(1e-6, Math.hypot(nx, ny, nz));
+    const ndotl = Math.abs((nx / nmag) * lx + (ny / nmag) * ly + (nz / nmag) * lz); // two-sided
+    const d = (projected[face[0]][2] + projected[face[1]][2] + projected[face[2]][2]) / 3;
+    return { face, d, ndotl };
+  }).sort((a, b) => a.d - b.d);
 
   for (const t of tris) {
     const [a, b, c] = t.face;
     const p0 = projected[a], p1 = projected[b], p2 = projected[c];
 
-    const u1 = p1[0] - p0[0], u2 = p1[1] - p0[1];
-    const v1 = p2[0] - p0[0], v2 = p2[1] - p0[1];
-    const cross = u1 * v2 - u2 * v1;
-    if (cross < 0) continue;
-
-    const shade = Math.max(0.18, Math.min(0.9, 0.35 + 0.0006 * (1100 - t.d)));
+    const ambient = 0.32;
+    const diffuse = 0.68 * t.ndotl;
+    const shade = Math.max(0.12, Math.min(0.98, ambient + diffuse));
     const r = Math.floor(205 * shade), g = Math.floor(183 * shade), bl = Math.floor(159 * shade);
+
     ctx.fillStyle = `rgb(${r},${g},${bl})`;
     ctx.beginPath();
     ctx.moveTo(p0[0], p0[1]);
@@ -197,6 +222,33 @@ function addResolutionControl(name, min, max, step) {
   document.getElementById('controls').appendChild(wrap);
 }
 
+function addViewControl(name, min, max, step) {
+  const wrap = document.createElement('div');
+  wrap.className = 'control';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lbl = document.createElement('span'); lbl.textContent = name;
+  const value = document.createElement('span');
+  row.append(lbl, value);
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(viewState[name]);
+  value.textContent = Number(viewState[name]).toFixed(2);
+
+  input.addEventListener('input', () => {
+    viewState[name] = Number(input.value);
+    value.textContent = Number(viewState[name]).toFixed(2);
+    draw();
+  });
+
+  wrap.append(row, input);
+  document.getElementById('controls').appendChild(wrap);
+}
+
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
@@ -209,6 +261,7 @@ presetEl.value = 'spiral_ribbed';
 function reloadSliders() {
   const controls = document.getElementById('controls');
   controls.innerHTML = '';
+  viewSliders.forEach(s => addViewControl(...s));
   resolutionSliders.forEach(s => addResolutionControl(...s));
   sliders.forEach(s => addControl(...s));
 }
@@ -251,6 +304,17 @@ window.addEventListener('mousemove', (e) => {
   angleX = Math.max(-1.2, Math.min(0.35, angleX + dy * 0.01));
   draw();
 });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0012);
+  viewState.zoom = Math.max(0.35, Math.min(3.0, viewState.zoom * f));
+  const zoomLabel = document.querySelector('.control .row span:last-child');
+  if (zoomLabel) zoomLabel.textContent = Number(viewState.zoom).toFixed(2);
+  const zoomSlider = document.querySelector('input[type="range"]');
+  if (zoomSlider) zoomSlider.value = String(viewState.zoom);
+  draw();
+}, { passive: false });
 
 window.addEventListener('resize', draw);
 

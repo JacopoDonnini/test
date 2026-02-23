@@ -72,6 +72,8 @@ Features:
 - Reset to preset
 - Export current vase as OBJ from GUI
 - Mesh resolution controls (`n_theta`, `n_z`) to increase triangle count and smoothness
+- Zoom control (slider + mouse wheel) with auto-fit so tall vases stay in frame
+- Improved two-sided lighting so inside surfaces render correctly
 
 ## Single executable build (for sharing)
 
