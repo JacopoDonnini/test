@@ -71,7 +71,7 @@ Features:
 - Preset selector
 - Reset to preset
 - Export current vase as OBJ from GUI
-- Mesh resolution controls (`n_theta`, `n_z`) to increase triangle count and smoothness
+- Mesh resolution controls (`n_theta`, `n_z`) to increase triangle count and smoothness (`n_theta` now supports very high values for near-smooth silhouettes)
 - Zoom control (slider + mouse wheel) with auto-fit so tall vases stay in frame
 - Improved two-sided lighting so inside surfaces render correctly
 - Expanded wave-related tuner ranges (`waves`, `wave_amp`, `wave_z_falloff`, `skew_wave`, `seed_phase`) for more extreme styles

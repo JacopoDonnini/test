@@ -8,7 +8,7 @@ const presets = {
 };
 
 const resolutionSliders = [
-  ['n_theta', 48, 320, 1],
+  ['n_theta', 48, 1400, 1],
   ['n_z', 64, 360, 1],
 ];
 
