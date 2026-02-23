@@ -19,8 +19,8 @@ const viewSliders = [
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
-  ['waves', 2, 30, 1], ['wave_amp', 0, 0.25, 0.005], ['wave_z_falloff', 0.0, 0.45, 0.01],
-  ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', 0, 1, 0.02], ['seed_phase', 0, 6.2832, 0.01],
+  ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
+  ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
 ];
 
 let meshResolution = { n_theta: 160, n_z: 200 };
