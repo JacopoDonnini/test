@@ -1,0 +1,13 @@
+:root { color-scheme: dark; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #111; color: #eee; }
+.layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+.panel { padding: 16px; overflow: auto; border-right: 1px solid #2a2a2a; background: #171717; }
+h1 { margin: 0 0 10px; font-size: 1.2rem; }
+label { display: block; margin: 8px 0; font-size: .9rem; }
+input[type="range"] { width: 100%; }
+.control { margin: 8px 0 12px; }
+.row { display:flex; justify-content:space-between; gap:8px; font-size:.85rem; color:#b8b8b8; }
+.actions { display:flex; gap:8px; margin:14px 0; }
+button, select { background: #242424; color: #fff; border: 1px solid #3a3a3a; padding: 8px; border-radius: 6px; }
+main { position: relative; }
+#view { width: 100%; height: 100%; display: block; }
