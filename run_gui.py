@@ -6,6 +6,11 @@ Default behavior (most reliable for desktop users):
 
 Optional behavior:
 - --serve : runs local HTTP server and opens http://127.0.0.1:<port>/gui/
+
+Packaged executable note:
+- when running as a PyInstaller one-file executable, file:// mode is not stable because
+  the temporary extraction folder is cleaned up on process exit. In that case we default
+  to --serve behavior unless explicitly overridden.
 """
 
 from __future__ import annotations
@@ -61,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--port", type=int, default=8000, help="Preferred port (serve mode)")
     ap.add_argument("--no-browser", action="store_true", help="Do not auto-open browser")
     ap.add_argument("--serve", action="store_true", help="Use local HTTP server instead of file:// launch")
+    ap.add_argument("--file", action="store_true", help="Force file:// launch mode")
     return ap.parse_args()
 
 
@@ -178,7 +184,12 @@ def main() -> None:
     args = parse_args()
     root = app_root()
 
-    if args.serve:
+    force_serve_for_frozen = bool(getattr(sys, "frozen", False) and not args.file)
+
+    if args.serve or force_serve_for_frozen:
+        if force_serve_for_frozen and not args.serve:
+            logging.info("Frozen executable detected: defaulting to local server mode for stable asset loading")
+            print("Frozen executable detected: using local server mode for reliable asset loading.")
         launch_server_mode(root, args.host, args.port, args.no_browser)
     else:
         launch_file_mode(root, args.no_browser)

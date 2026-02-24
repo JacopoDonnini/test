@@ -56,7 +56,9 @@ Run:
 python3 run_gui.py
 ```
 
-This now opens the GUI directly via `file://.../gui/index.html` (no localhost server needed).
+From source checkout, this opens the GUI directly via `file://.../gui/index.html` (no localhost server needed).
+
+When running the packaged PyInstaller executable, it automatically uses localhost server mode to avoid missing-file issues in one-file extraction mode.
 
 If you explicitly want localhost mode:
 
@@ -98,6 +100,10 @@ What happens when users double-click it:
 - browser opens automatically at the GUI
 - no manual terminal command needed
 
+Where to run from:
+- Windows `.exe`: anywhere after extracting the `.zip` (single file).
+- Linux/macOS `.tar.gz`: first extract the archive, then run `./VaseGeneratorApp` (or `./run-vase-generator.sh`) from the extracted folder.
+
 Tip: build on the same OS you plan to distribute to (Windows builds Windows `.exe`, etc.).
 
 ### Prebuilt binaries for Windows/macOS/Linux
@@ -134,7 +140,7 @@ Troubleshooting if you only see source archives:
 - If you want files attached to a GitHub Release, run manually with the `tag` input filled (existing `v*` tag).
 - Linux/macOS archives are `.tar.gz` intentionally so executable permissions are preserved after extraction.
 - For Linux/macOS assets, if double-clicking the binary does nothing, use `run-vase-generator.sh` included in the archive.
-- On Windows, if browser showed `ERR_EMPTY_RESPONSE`, use the latest build: it opens `file://.../gui/index.html` directly by default (no localhost dependency).
+- On Windows, if browser showed `ERR_EMPTY_RESPONSE`, use the latest build: packaged executables now default to localhost server mode for more reliable asset loading.
 - If using `--serve` and it fails, check `VaseGeneratorApp.log` in your home folder for startup/runtime errors.
 - Linux builds are produced on `ubuntu-22.04` to avoid the `GLIBC_2.38 not found` issue from newer runners.
 
