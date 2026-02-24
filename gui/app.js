@@ -19,9 +19,14 @@ const viewSliders = [
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
+  ['perimeter_slope_limit', 0.01, 1.0, 0.01],
   ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
 ];
+
+for (const p of Object.values(presets)) {
+  if (p.perimeter_slope_limit === undefined) p.perimeter_slope_limit = 1.0;
+}
 
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
@@ -95,9 +100,31 @@ function buildMesh(p, nTheta, nZ) {
   for (let iz = 0; iz <= nZ; iz++) {
     const z01 = iz / nZ;
     const z = z01 * p.height;
+    const ringR = [];
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
       const r = radius(th, z01, p);
+      ringR.push(r);
+    }
+
+    // Limit steepness around perimeter by clamping adjacent radius deltas.
+    const slopeLimit = Math.max(0.01, Number(p.perimeter_slope_limit ?? 1.0));
+    if (slopeLimit < 0.999) {
+      const avgR = ringR.reduce((a, b) => a + b, 0) / Math.max(1, ringR.length);
+      const maxDelta = Math.max(1e-3, avgR * slopeLimit * (2 * Math.PI / nTheta));
+      for (let pass = 0; pass < 2; pass++) {
+        for (let it = 0; it < nTheta; it++) {
+          const prev = (it - 1 + nTheta) % nTheta;
+          const diff = ringR[it] - ringR[prev];
+          if (diff > maxDelta) ringR[it] = ringR[prev] + maxDelta;
+          if (diff < -maxDelta) ringR[it] = ringR[prev] - maxDelta;
+        }
+      }
+    }
+
+    for (let it = 0; it < nTheta; it++) {
+      const th = 2 * Math.PI * it / nTheta;
+      const r = ringR[it];
       verts.push([r * Math.cos(th), r * Math.sin(th), z]);
     }
   }
