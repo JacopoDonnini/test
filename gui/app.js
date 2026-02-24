@@ -1,10 +1,10 @@
 const presets = {
-  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0 },
-  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0 },
-  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0 },
-  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0 },
-  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0 },
-  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0 },
+  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, wave_roundness:0.0 },
+  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, wave_roundness:0.0 },
+  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, wave_roundness:0.0 },
+  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, wave_roundness:0.0 },
+  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, wave_roundness:0.0 },
+  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, wave_roundness:0.0 },
 };
 
 const resolutionSliders = [
@@ -24,15 +24,16 @@ const sliders = [
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
 ];
 
-for (const p of Object.values(presets)) {
-  if (p.wave_roundness === undefined) p.wave_roundness = 0.0;
-}
+const textureModes = ['none', 'honeycomb', 'bark', 'paper', 'upload'];
 
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
 
 let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
+let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
+let uploadedTexture = null; // { w, h, data: Uint8ClampedArray luminance }
+
 let params = { ...presets.spiral_ribbed };
 let meshPreview = null;
 let meshInteractive = null;
@@ -50,6 +51,8 @@ const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
 
 function smoothstep(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+function fract(x) { return x - Math.floor(x); }
+
 function baseProfile(z, p) {
   const neckMix = smoothstep(z);
   const linear = (1 - neckMix) * p.base_radius + neckMix * p.neck_radius;
@@ -71,6 +74,55 @@ function radius(th, z, p) {
   const h = Math.cos(p.waves * th + twistPhase(z, p));
   const sk = p.skew_wave * Math.sin((Math.floor(p.waves / 2) + 1) * th - 0.7 * twistPhase(z, p));
   return Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+}
+
+function sampleHoneycomb(u, v) {
+  const su = u * textureState.scaleU * 2.0;
+  const sv = v * textureState.scaleV * 1.1547;
+  const qx = su;
+  const qy = sv - su * 0.5;
+  const rq = Math.round(qx);
+  const rr = Math.round(qy);
+  const dx = qx - rq;
+  const dy = qy - rr;
+  const dist = Math.min(1.0, Math.hypot(dx, dy));
+  const edge = smoothstep(0.25 + 0.25 * dist);
+  return 0.35 + 0.65 * edge;
+}
+
+function sampleBark(u, v) {
+  const x = u * textureState.scaleU;
+  const y = v * textureState.scaleV;
+  const ridges = Math.abs(Math.sin(8.0 * x + 1.4 * Math.sin(2.7 * y)));
+  const grain = 0.5 + 0.5 * Math.sin(17.0 * y + 4.0 * Math.sin(2.0 * x));
+  return Math.max(0, Math.min(1, 0.35 + 0.45 * ridges + 0.2 * grain));
+}
+
+function samplePaper(u, v) {
+  const x = u * textureState.scaleU;
+  const y = v * textureState.scaleV;
+  const n1 = 0.5 + 0.5 * Math.sin(13.13 * x + 7.11 * y);
+  const n2 = 0.5 + 0.5 * Math.sin(31.73 * x - 9.91 * y);
+  const n3 = 0.5 + 0.5 * Math.sin(53.21 * x + 37.77 * y);
+  return Math.max(0, Math.min(1, 0.4 * n1 + 0.35 * n2 + 0.25 * n3));
+}
+
+function sampleUploaded(u, v) {
+  if (!uploadedTexture) return 0.5;
+  const uu = fract(u * textureState.scaleU);
+  const vv = fract(v * textureState.scaleV);
+  const x = Math.max(0, Math.min(uploadedTexture.w - 1, Math.floor(uu * uploadedTexture.w)));
+  const y = Math.max(0, Math.min(uploadedTexture.h - 1, Math.floor(vv * uploadedTexture.h)));
+  return uploadedTexture.data[y * uploadedTexture.w + x] / 255.0;
+}
+
+function sampleTexture(u, v) {
+  if (textureState.mode === 'none') return 0.5;
+  if (textureState.mode === 'honeycomb') return sampleHoneycomb(u, v);
+  if (textureState.mode === 'bark') return sampleBark(u, v);
+  if (textureState.mode === 'paper') return samplePaper(u, v);
+  if (textureState.mode === 'upload') return sampleUploaded(u, v);
+  return 0.5;
 }
 
 function smoothCircularRing(values, radius, strength, passes) {
@@ -125,7 +177,15 @@ function buildMesh(p, nTheta, nZ) {
     const ringR = [];
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
-      const r = radius(th, z01, p);
+      let r = radius(th, z01, p);
+
+      const u = it / nTheta;
+      const tex = sampleTexture(u, z01); // 0..1
+      const carved = (0.5 - tex) * 2.0; // brighter -> inward
+      const depth = Math.max(0, Math.min(0.95, textureState.depth));
+      r *= (1 + carved * depth * 0.35);
+      r = Math.max(1e-3, r);
+
       ringR.push(r);
     }
 
@@ -173,7 +233,8 @@ function rotate(v) {
 function draw(interactive = false) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; canvas.height = h;
+    canvas.width = w;
+    canvas.height = h;
   }
   ctx.fillStyle = '#101114';
   ctx.fillRect(0, 0, w, h);
@@ -352,6 +413,104 @@ function addViewControl(name, min, max, step) {
   document.getElementById('controls').appendChild(wrap);
 }
 
+function addTextureControls() {
+  const controls = document.getElementById('controls');
+
+  const title = document.createElement('div');
+  title.className = 'control';
+  title.innerHTML = '<div class="row"><span><strong>texture_mode</strong></span><span></span></div>';
+  controls.appendChild(title);
+
+  const modeWrap = document.createElement('div');
+  modeWrap.className = 'control';
+  const modeSelect = document.createElement('select');
+  for (const m of textureModes) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    modeSelect.appendChild(opt);
+  }
+  modeSelect.value = textureState.mode;
+  modeSelect.addEventListener('change', () => {
+    textureState.mode = modeSelect.value;
+    rebuildMeshes();
+  });
+  modeWrap.appendChild(modeSelect);
+  controls.appendChild(modeWrap);
+
+  const fileWrap = document.createElement('div');
+  fileWrap.className = 'control';
+  const fileHint = document.createElement('div');
+  fileHint.className = 'row';
+  fileHint.innerHTML = '<span>Upload image texture</span><span>PNG grayscale recommended</span>';
+  fileWrap.appendChild(fileHint);
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.png,.jpg,.jpeg,.webp';
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    const objectUrl = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = Math.min(512, img.width);
+      c.height = Math.min(512, img.height);
+      const cctx = c.getContext('2d');
+      cctx.drawImage(img, 0, 0, c.width, c.height);
+      const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
+      const lum = new Uint8ClampedArray(c.width * c.height);
+      for (let i = 0; i < lum.length; i++) {
+        const r = rgba[i * 4 + 0], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+        lum[i] = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+      }
+      uploadedTexture = { w: c.width, h: c.height, data: lum };
+      textureState.mode = 'upload';
+      modeSelect.value = 'upload';
+      rebuildMeshes();
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    img.src = objectUrl;
+  });
+  fileWrap.appendChild(fileInput);
+  controls.appendChild(fileWrap);
+
+  const addTexSlider = (name, min, max, step) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'control';
+    const row = document.createElement('div');
+    row.className = 'row';
+    const lbl = document.createElement('span'); lbl.textContent = name;
+    const value = document.createElement('span');
+    row.append(lbl, value);
+
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = String(min); input.max = String(max); input.step = String(step);
+    input.value = String(textureState[name]);
+    value.textContent = Number(textureState[name]).toFixed(2);
+
+    input.addEventListener('input', () => {
+      textureState[name] = Number(input.value);
+      value.textContent = Number(textureState[name]).toFixed(2);
+      rebuildMeshes();
+    });
+
+    wrap.append(row, input);
+    controls.appendChild(wrap);
+  };
+
+  addTexSlider('depth', 0.0, 0.6, 0.01);
+  addTexSlider('scaleU', 1.0, 16.0, 0.1);
+  addTexSlider('scaleV', 1.0, 16.0, 0.1);
+}
+
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
@@ -367,6 +526,7 @@ function reloadSliders() {
   viewSliders.forEach(s => addViewControl(...s));
   resolutionSliders.forEach(s => addResolutionControl(...s));
   sliders.forEach(s => addControl(...s));
+  addTextureControls();
 }
 
 presetEl.addEventListener('change', () => {
