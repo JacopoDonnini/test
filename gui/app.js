@@ -66,6 +66,15 @@ function borderThicknessMm(value, height) {
   return Math.max(0, Math.min(Number(value) || 0, Math.max(0, height * 0.5)));
 }
 
+function bottomBorderRadius(p) {
+  const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
+  if (bottomBorder <= 0) return Math.max(1e-3, p.base_radius);
+  const z = Math.max(0, Math.min(1, bottomBorder / Math.max(1e-6, p.height)));
+  // Keep the straight base as wide as the vase right above the border by sampling
+  // the average profile radius at the transition height before border straightening.
+  return Math.max(1e-3, baseProfile(z, p));
+}
+
 function isInStraightZone(z, p) {
   const zMm = z * p.height;
   const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
@@ -85,7 +94,7 @@ function twistPhase(z, p) { return p.seed_phase + p.twist * z + p.twist_curve * 
 function radius(th, z, p) {
   const zMm = z * p.height;
   const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
-  if (bottomBorder > 0 && zMm <= bottomBorder) return Math.max(1e-3, p.base_radius);
+  if (bottomBorder > 0 && zMm <= bottomBorder) return bottomBorderRadius(p);
 
   const topBorder = borderThicknessMm(p.top_border, p.height);
   if (topBorder > 0 && (p.height - zMm) <= topBorder) return Math.max(1e-3, p.lip_radius);
