@@ -11,6 +11,7 @@ Packaged executable note:
 - when running as a PyInstaller one-file executable, file:// mode is not stable because
   the temporary extraction folder is cleaned up on process exit. In that case we default
   to --serve behavior unless explicitly overridden.
+- bundled GUI files are also copied to a persistent runtime cache for extra reliability.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import argparse
 import logging
 import os
 import socket
+import shutil
 import subprocess
 import sys
 import threading
@@ -35,6 +37,41 @@ def app_root() -> Path:
         return Path(sys._MEIPASS)
     return Path(__file__).resolve().parent
 
+
+def runtime_root() -> Path:
+    """Return a stable runtime root that contains GUI assets.
+
+    For frozen one-file executables, copy bundled files from the transient
+    extraction folder to a persistent user cache directory. This avoids cases
+    where temporary extraction paths become unavailable during/after startup.
+    """
+    src = app_root()
+    frozen = bool(getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"))
+    if not frozen:
+        return src
+
+    cache_root = (Path.home() if Path.home().exists() else Path.cwd()) / ".vase_generator_runtime"
+    try:
+        cache_root.mkdir(parents=True, exist_ok=True)
+        gui_src = src / "gui"
+        gui_dst = cache_root / "gui"
+
+        if gui_src.exists():
+            need_refresh = (not gui_dst.exists())
+            if not need_refresh:
+                src_mtime = max((f.stat().st_mtime for f in gui_src.rglob('*') if f.is_file()), default=0)
+                dst_mtime = max((f.stat().st_mtime for f in gui_dst.rglob('*') if f.is_file()), default=0)
+                need_refresh = src_mtime > dst_mtime
+
+            if need_refresh:
+                if gui_dst.exists():
+                    shutil.rmtree(gui_dst, ignore_errors=True)
+                shutil.copytree(gui_src, gui_dst)
+
+        return cache_root
+    except Exception:
+        logging.exception("Failed to prepare persistent runtime cache; using app root")
+        return src
 
 def log_path() -> Path:
     base = Path.home() if Path.home().exists() else Path.cwd()
@@ -227,7 +264,7 @@ def launch_with_fallbacks(root: Path, args: argparse.Namespace) -> None:
 def main() -> None:
     configure_logging()
     args = parse_args()
-    root = app_root()
+    root = runtime_root()
     launch_with_fallbacks(root, args)
 
 

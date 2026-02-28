@@ -62,6 +62,8 @@ When running the packaged PyInstaller executable, it automatically uses localhos
 
 If the preferred mode fails at startup, the launcher now automatically falls back to the other mode (server ↔ file) as a fail-safe.
 
+For packaged one-file executables, GUI assets are also copied to a persistent user runtime cache (`~/.vase_generator_runtime`) to avoid transient extraction-path issues on some Windows setups.
+
 If you explicitly want localhost mode:
 
 ```bash
