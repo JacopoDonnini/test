@@ -80,6 +80,21 @@ Features:
 - Wave dampener (`wave_roundness`) to smooth/round harsh wave peaks and edges
 - Adaptive preview rendering for high resolutions (interactive decimation + full-res export) to keep interaction smooth
 
+Texture from uploaded image (best results):
+- Prefer **PNG grayscale** (8-bit) for predictable carving depth.
+- Use higher-resolution textures (e.g. 1024×1024 to 2048×2048). The GUI now preserves more source detail and uses smoother sampling.
+- Use **seamless/tileable** textures if you set high `scaleU`/`scaleV`, otherwise a seam can appear where wrapping occurs.
+- In the GUI, choose `texture_mode = upload`, then set:
+  - `depth` for carving strength
+  - `scaleU` for horizontal repetition around the vase
+  - `scaleV` for vertical repetition along height
+- Very noisy images can look rough when depth is high; reduce `depth` first, then tune scale.
+
+New border controls:
+- `bottom_border` (mm): keeps the bottom section straight as a cylinder at `base_radius`.
+- `top_border` (mm): keeps the top lip section straight as a cylinder at `lip_radius`.
+- Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves/texture are not applied in those border zones).
+
 ## Single executable build (for sharing)
 
 Good news: this does **not** require a big code change.

@@ -1,10 +1,10 @@
 const presets = {
-  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, wave_roundness:0.0 },
-  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, wave_roundness:0.0 },
-  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, wave_roundness:0.0 },
-  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, wave_roundness:0.0 },
-  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, wave_roundness:0.0 },
-  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, wave_roundness:0.0 },
+  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
 };
 
 const resolutionSliders = [
@@ -18,6 +18,7 @@ const viewSliders = [
 
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
+  ['bottom_border', 0, 20, 0.1], ['top_border', 0, 20, 0.1],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
   ['wave_roundness', 0.0, 1.0, 0.01],
   ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
@@ -32,7 +33,7 @@ const MAX_INTERACTIVE_TRIANGLES = 70000;
 let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
-let uploadedTexture = null; // { w, h, data: Uint8ClampedArray luminance }
+let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
 
 let params = { ...presets.spiral_ribbed };
 let meshPreview = null;
@@ -61,6 +62,19 @@ function baseProfile(z, p) {
   const belly = p.belly_amp * Math.exp(-(t * t));
   return Math.max(1e-3, linear + lipBloom + belly);
 }
+function borderThicknessMm(value, height) {
+  return Math.max(0, Math.min(Number(value) || 0, Math.max(0, height * 0.5)));
+}
+
+function isInStraightZone(z, p) {
+  const zMm = z * p.height;
+  const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
+  const topBorder = borderThicknessMm(p.top_border, p.height);
+  if (bottomBorder > 0 && zMm <= bottomBorder) return true;
+  if (topBorder > 0 && (p.height - zMm) <= topBorder) return true;
+  return false;
+}
+
 function waveEnvelope(z, p) {
   const center = Math.pow(Math.sin(Math.PI * z), 0.7);
   const denom = Math.max(1e-6, (1 - 2 * p.wave_z_falloff));
@@ -69,6 +83,13 @@ function waveEnvelope(z, p) {
 }
 function twistPhase(z, p) { return p.seed_phase + p.twist * z + p.twist_curve * z * z; }
 function radius(th, z, p) {
+  const zMm = z * p.height;
+  const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
+  if (bottomBorder > 0 && zMm <= bottomBorder) return Math.max(1e-3, p.base_radius);
+
+  const topBorder = borderThicknessMm(p.top_border, p.height);
+  if (topBorder > 0 && (p.height - zMm) <= topBorder) return Math.max(1e-3, p.lip_radius);
+
   const r0 = baseProfile(z, p);
   const env = waveEnvelope(z, p);
   const h = Math.cos(p.waves * th + twistPhase(z, p));
@@ -111,9 +132,24 @@ function sampleUploaded(u, v) {
   if (!uploadedTexture) return 0.5;
   const uu = fract(u * textureState.scaleU);
   const vv = fract(v * textureState.scaleV);
-  const x = Math.max(0, Math.min(uploadedTexture.w - 1, Math.floor(uu * uploadedTexture.w)));
-  const y = Math.max(0, Math.min(uploadedTexture.h - 1, Math.floor(vv * uploadedTexture.h)));
-  return uploadedTexture.data[y * uploadedTexture.w + x] / 255.0;
+
+  const fx = uu * uploadedTexture.w;
+  const fy = vv * uploadedTexture.h;
+  const x0 = Math.floor(fx) % uploadedTexture.w;
+  const y0 = Math.floor(fy) % uploadedTexture.h;
+  const x1 = (x0 + 1) % uploadedTexture.w;
+  const y1 = (y0 + 1) % uploadedTexture.h;
+  const tx = fx - Math.floor(fx);
+  const ty = fy - Math.floor(fy);
+
+  const i00 = y0 * uploadedTexture.w + x0;
+  const i10 = y0 * uploadedTexture.w + x1;
+  const i01 = y1 * uploadedTexture.w + x0;
+  const i11 = y1 * uploadedTexture.w + x1;
+
+  const a = uploadedTexture.data[i00] * (1 - tx) + uploadedTexture.data[i10] * tx;
+  const b = uploadedTexture.data[i01] * (1 - tx) + uploadedTexture.data[i11] * tx;
+  return a * (1 - ty) + b * ty;
 }
 
 function sampleTexture(u, v) {
@@ -179,12 +215,14 @@ function buildMesh(p, nTheta, nZ) {
       const th = 2 * Math.PI * it / nTheta;
       let r = radius(th, z01, p);
 
-      const u = it / nTheta;
-      const tex = sampleTexture(u, z01); // 0..1
-      const carved = (0.5 - tex) * 2.0; // brighter -> inward
-      const depth = Math.max(0, Math.min(0.95, textureState.depth));
-      r *= (1 + carved * depth * 0.35);
-      r = Math.max(1e-3, r);
+      if (!isInStraightZone(z01, p)) {
+        const u = it / nTheta;
+        const tex = sampleTexture(u, z01); // 0..1
+        const carved = (0.5 - tex) * 2.0; // brighter -> inward
+        const depth = Math.max(0, Math.min(0.95, textureState.depth));
+        r *= (1 + carved * depth * 0.35);
+        r = Math.max(1e-3, r);
+      }
 
       ringR.push(r);
     }
@@ -455,15 +493,19 @@ function addTextureControls() {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = Math.min(512, img.width);
-      c.height = Math.min(512, img.height);
+      const maxDim = 2048;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      c.width = Math.max(1, Math.round(img.width * scale));
+      c.height = Math.max(1, Math.round(img.height * scale));
       const cctx = c.getContext('2d');
+      cctx.imageSmoothingEnabled = true;
+      cctx.imageSmoothingQuality = 'high';
       cctx.drawImage(img, 0, 0, c.width, c.height);
       const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
-      const lum = new Uint8ClampedArray(c.width * c.height);
+      const lum = new Float32Array(c.width * c.height);
       for (let i = 0; i < lum.length; i++) {
         const r = rgba[i * 4 + 0], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
-        lum[i] = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+        lum[i] = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
       }
       uploadedTexture = { w: c.width, h: c.height, data: lum };
       textureState.mode = 'upload';
