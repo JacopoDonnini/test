@@ -27,6 +27,43 @@ const sliders = [
 
 const textureModes = ['none', 'honeycomb', 'bark', 'paper', 'upload'];
 
+
+const FIELD_INFO = {
+  zoom: { label: 'Zoom', unit: 'x', group: 'View', description: 'Scales the preview camera without changing the exported mesh.' },
+  n_theta: { label: 'Radial Resolution', unit: '', group: 'Resolution', description: 'Number of vertices around each ring. Higher = smoother circular detail.' },
+  n_z: { label: 'Vertical Resolution', unit: '', group: 'Resolution', description: 'Number of segments along height. Higher = smoother vertical profile.' },
+
+  height: { label: 'Height', unit: 'mm', group: 'Shape', description: 'Total vase height.' },
+  base_radius: { label: 'Base Radius', unit: 'mm', group: 'Shape', description: 'Radius at the very bottom of the vase.' },
+  neck_radius: { label: 'Neck Radius', unit: 'mm', group: 'Shape', description: 'Main radius near upper body before lip flare.' },
+  lip_radius: { label: 'Lip Radius', unit: 'mm', group: 'Shape', description: 'Radius at the open top lip.' },
+  belly_amp: { label: 'Belly Amount', unit: 'mm', group: 'Shape', description: 'How much the center swells outward.' },
+  belly_center: { label: 'Belly Position', unit: '', group: 'Shape', description: 'Vertical location of the belly bulge (0 bottom → 1 top).' },
+  belly_width: { label: 'Belly Width', unit: '', group: 'Shape', description: 'How broad or narrow the belly area is.' },
+
+  bottom_border: { label: 'Bottom Straight Band', unit: 'mm', group: 'Borders', description: 'Keeps the bottom section straight/cylindrical for this height.' },
+  top_border: { label: 'Top Straight Band', unit: 'mm', group: 'Borders', description: 'Keeps the lip section straight/cylindrical for this height.' },
+  top_transition: { label: 'Top Blend Band', unit: 'mm', group: 'Borders', description: 'Smooth blend height from waves into the top straight band.' },
+
+  waves: { label: 'Wave Count', unit: '', group: 'Waves', description: 'Number of wave lobes around the circumference.' },
+  wave_amp: { label: 'Wave Strength', unit: '', group: 'Waves', description: 'How strong the wave deformation is.' },
+  wave_z_falloff: { label: 'Bottom Wave Fade', unit: '', group: 'Waves', description: 'How much waves fade out near the bottom.' },
+  wave_roundness: { label: 'Wave Smoothing', unit: '', group: 'Waves', description: 'Rounds sharp peaks by smoothing each ring.' },
+
+  twist: { label: 'Twist', unit: '', group: 'Flow', description: 'Overall rotational twist from bottom to top.' },
+  twist_curve: { label: 'Twist Curve', unit: '', group: 'Flow', description: 'Makes twist accelerate or decelerate with height.' },
+  skew_wave: { label: 'Wave Asymmetry', unit: '', group: 'Flow', description: 'Adds asymmetry for a more organic look.' },
+  seed_phase: { label: 'Wave Phase', unit: 'rad', group: 'Flow', description: 'Initial rotational phase of waves.' },
+
+  texture_mode: { label: 'Texture Type', group: 'Texture', description: 'Choose a built-in procedural texture or upload your own image.' },
+  depth: { label: 'Texture Depth', unit: '', group: 'Texture', description: 'How strongly texture carves in/out on the surface.' },
+  scaleU: { label: 'Texture Repeat Around', unit: '', group: 'Texture', description: 'Horizontal repetition around circumference (U).' },
+  scaleV: { label: 'Texture Repeat Height', unit: '', group: 'Texture', description: 'Vertical repetition along height (V).' },
+  upload_texture: { label: 'Upload Texture Image', group: 'Texture', description: 'Upload PNG/JPG/WEBP; grayscale PNG gives best consistency.' },
+};
+
+const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Texture'];
+
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
 
@@ -398,65 +435,51 @@ function rebuildMeshes() {
   scheduleDraw(false);
 }
 
-function addControl(name, min, max, step) {
-  const wrap = document.createElement('div');
-  wrap.className = 'control';
-  const row = document.createElement('div');
-  row.className = 'row';
-  const lbl = document.createElement('span'); lbl.textContent = name;
-  const value = document.createElement('span');
-  row.append(lbl, value);
 
-  const input = document.createElement('input');
-  input.type = 'range';
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
-  input.value = String(params[name]);
-  value.textContent = String(params[name]);
-
-  input.addEventListener('input', () => {
-    params[name] = name === 'waves' ? Number.parseInt(input.value, 10) : Number(input.value);
-    value.textContent = String(params[name]);
-    rebuildMeshes();
-  });
-  wrap.append(row, input);
-  document.getElementById('controls').appendChild(wrap);
+function formatFieldValue(name, value) {
+  const info = FIELD_INFO[name] || {};
+  const numeric = Number(value);
+  if (name === 'waves' || name === 'n_theta' || name === 'n_z') return String(Math.round(numeric));
+  if (!Number.isFinite(numeric)) return String(value);
+  const fixed = Math.abs(numeric) >= 100 ? numeric.toFixed(1) : numeric.toFixed(2);
+  return info.unit ? `${fixed} ${info.unit}` : fixed;
 }
 
-function addResolutionControl(name, min, max, step) {
-  const wrap = document.createElement('div');
-  wrap.className = 'control';
-  const row = document.createElement('div');
-  row.className = 'row';
-  const lbl = document.createElement('span'); lbl.textContent = name;
-  const value = document.createElement('span');
-  row.append(lbl, value);
-
-  const input = document.createElement('input');
-  input.type = 'range';
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
-  input.value = String(meshResolution[name]);
-  value.textContent = String(meshResolution[name]);
-
-  input.addEventListener('input', () => {
-    meshResolution[name] = Number.parseInt(input.value, 10);
-    value.textContent = String(meshResolution[name]);
-    rebuildMeshes();
-  });
-
-  wrap.append(row, input);
-  document.getElementById('controls').appendChild(wrap);
+function showHelpFor(name) {
+  const helpTitle = document.getElementById('helpTitle');
+  const helpText = document.getElementById('helpText');
+  if (!helpTitle || !helpText) return;
+  const info = FIELD_INFO[name];
+  if (!info) return;
+  helpTitle.textContent = info.label || name;
+  helpText.textContent = info.description || 'Adjust this parameter to change the vase.';
 }
 
-function addViewControl(name, min, max, step) {
+function getOrCreateGroup(name) {
+  const controls = document.getElementById('controls');
+  const id = `group-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  let section = document.getElementById(id);
+  if (!section) {
+    section = document.createElement('section');
+    section.className = 'group';
+    section.id = id;
+    const h = document.createElement('h2');
+    h.textContent = name;
+    section.appendChild(h);
+    controls.appendChild(section);
+  }
+  return section;
+}
+
+function addControl(name, min, max, step, stateObj, onChange) {
+  const info = FIELD_INFO[name] || { label: name, group: 'Shape' };
   const wrap = document.createElement('div');
   wrap.className = 'control';
+  wrap.title = info.description || '';
+
   const row = document.createElement('div');
   row.className = 'row';
-  const lbl = document.createElement('span'); lbl.textContent = name;
+  const lbl = document.createElement('span'); lbl.textContent = info.label || name;
   const value = document.createElement('span');
   row.append(lbl, value);
 
@@ -465,54 +488,64 @@ function addViewControl(name, min, max, step) {
   input.min = String(min);
   input.max = String(max);
   input.step = String(step);
-  input.value = String(viewState[name]);
-  value.textContent = Number(viewState[name]).toFixed(2);
+  input.value = String(stateObj[name]);
+  value.textContent = formatFieldValue(name, stateObj[name]);
+
+  const activateHelp = () => showHelpFor(name);
+  input.addEventListener('focus', activateHelp);
+  input.addEventListener('mouseenter', activateHelp);
+  lbl.addEventListener('mouseenter', activateHelp);
 
   input.addEventListener('input', () => {
-    viewState[name] = Number(input.value);
-    value.textContent = Number(viewState[name]).toFixed(2);
-    scheduleDraw(dragging);
+    onChange(input.value);
+    value.textContent = formatFieldValue(name, stateObj[name]);
   });
 
   wrap.append(row, input);
-  document.getElementById('controls').appendChild(wrap);
+  getOrCreateGroup(info.group || 'Shape').appendChild(wrap);
 }
 
 function addTextureControls() {
-  const controls = document.getElementById('controls');
-
-  const title = document.createElement('div');
-  title.className = 'control';
-  title.innerHTML = '<div class="row"><span><strong>texture_mode</strong></span><span></span></div>';
-  controls.appendChild(title);
+  const textureGroup = getOrCreateGroup('Texture');
 
   const modeWrap = document.createElement('div');
   modeWrap.className = 'control';
+  modeWrap.title = FIELD_INFO.texture_mode.description;
+
+  const modeRow = document.createElement('div');
+  modeRow.className = 'row';
+  modeRow.innerHTML = `<span>${FIELD_INFO.texture_mode.label}</span><span></span>`;
+  modeWrap.appendChild(modeRow);
+
   const modeSelect = document.createElement('select');
   for (const m of textureModes) {
     const opt = document.createElement('option');
     opt.value = m;
-    opt.textContent = m;
+    opt.textContent = m === 'none' ? 'None' : (m[0].toUpperCase() + m.slice(1));
     modeSelect.appendChild(opt);
   }
   modeSelect.value = textureState.mode;
   modeSelect.addEventListener('change', () => {
     textureState.mode = modeSelect.value;
+    showHelpFor('texture_mode');
     rebuildMeshes();
   });
   modeWrap.appendChild(modeSelect);
-  controls.appendChild(modeWrap);
+  textureGroup.appendChild(modeWrap);
 
   const fileWrap = document.createElement('div');
   fileWrap.className = 'control';
+  fileWrap.title = FIELD_INFO.upload_texture.description;
   const fileHint = document.createElement('div');
   fileHint.className = 'row';
-  fileHint.innerHTML = '<span>Upload image texture</span><span>PNG grayscale recommended</span>';
+  fileHint.innerHTML = '<span>Upload Texture Image</span><span>PNG grayscale recommended</span>';
   fileWrap.appendChild(fileHint);
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.png,.jpg,.jpeg,.webp';
+  fileInput.addEventListener('focus', () => showHelpFor('upload_texture'));
+  fileInput.addEventListener('mouseenter', () => showHelpFor('upload_texture'));
   fileInput.addEventListener('change', () => {
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
@@ -548,43 +581,27 @@ function addTextureControls() {
     img.src = objectUrl;
   });
   fileWrap.appendChild(fileInput);
-  controls.appendChild(fileWrap);
+  textureGroup.appendChild(fileWrap);
 
-  const addTexSlider = (name, min, max, step) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'control';
-    const row = document.createElement('div');
-    row.className = 'row';
-    const lbl = document.createElement('span'); lbl.textContent = name;
-    const value = document.createElement('span');
-    row.append(lbl, value);
-
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = String(min); input.max = String(max); input.step = String(step);
-    input.value = String(textureState[name]);
-    value.textContent = Number(textureState[name]).toFixed(2);
-
-    input.addEventListener('input', () => {
-      textureState[name] = Number(input.value);
-      value.textContent = Number(textureState[name]).toFixed(2);
-      rebuildMeshes();
-    });
-
-    wrap.append(row, input);
-    controls.appendChild(wrap);
-  };
-
-  addTexSlider('depth', 0.0, 0.6, 0.01);
-  addTexSlider('scaleU', 1.0, 16.0, 0.1);
-  addTexSlider('scaleV', 1.0, 16.0, 0.1);
+  addControl('depth', 0.0, 0.6, 0.01, textureState, (v) => {
+    textureState.depth = Number(v);
+    rebuildMeshes();
+  });
+  addControl('scaleU', 1.0, 16.0, 0.1, textureState, (v) => {
+    textureState.scaleU = Number(v);
+    rebuildMeshes();
+  });
+  addControl('scaleV', 1.0, 16.0, 0.1, textureState, (v) => {
+    textureState.scaleV = Number(v);
+    rebuildMeshes();
+  });
 }
 
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
   option.value = name;
-  option.textContent = name;
+  option.textContent = name.replaceAll('_', ' ');
   presetEl.appendChild(option);
 });
 presetEl.value = 'spiral_ribbed';
@@ -592,10 +609,25 @@ presetEl.value = 'spiral_ribbed';
 function reloadSliders() {
   const controls = document.getElementById('controls');
   controls.innerHTML = '';
-  viewSliders.forEach(s => addViewControl(...s));
-  resolutionSliders.forEach(s => addResolutionControl(...s));
-  sliders.forEach(s => addControl(...s));
+  for (const groupName of GROUP_ORDER) getOrCreateGroup(groupName);
+
+  viewSliders.forEach(([name, min, max, step]) => addControl(name, min, max, step, viewState, (v) => {
+    viewState[name] = Number(v);
+    scheduleDraw(dragging);
+  }));
+
+  resolutionSliders.forEach(([name, min, max, step]) => addControl(name, min, max, step, meshResolution, (v) => {
+    meshResolution[name] = Math.max(8, Math.floor(Number(v)));
+    rebuildMeshes();
+  }));
+
+  sliders.forEach(([name, min, max, step]) => addControl(name, min, max, step, params, (v) => {
+    params[name] = name === 'waves' ? Number.parseInt(v, 10) : Number(v);
+    rebuildMeshes();
+  }));
+
   addTextureControls();
+  showHelpFor('height');
 }
 
 function exportPresetFile() {
