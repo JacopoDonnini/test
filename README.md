@@ -94,6 +94,7 @@ New border controls:
 - `bottom_border` (mm): keeps the bottom section straight as a cylinder at `base_radius`.
 - `top_border` (mm): keeps the top lip section straight as a cylinder at `lip_radius`.
 - Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves/texture are not applied in those border zones).
+- Top border includes an automatic smooth transition band below the straight section, so upper waves blend into the lip instead of creating a sudden step.
 
 ## Single executable build (for sharing)
 

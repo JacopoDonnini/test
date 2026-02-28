@@ -66,6 +66,14 @@ function borderThicknessMm(value, height) {
   return Math.max(0, Math.min(Number(value) || 0, Math.max(0, height * 0.5)));
 }
 
+function topTransitionMm(p) {
+  // Transition zone just below the top straight border to avoid abrupt overhangs.
+  // Keep it compact so the nice upper waves are preserved as much as possible.
+  const topBorder = borderThicknessMm(p.top_border, p.height);
+  if (topBorder <= 0) return 0;
+  return Math.max(0.8, Math.min(8.0, topBorder));
+}
+
 function bottomBorderRadius(p) {
   const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
   if (bottomBorder <= 0) return Math.max(1e-3, p.base_radius);
@@ -97,13 +105,26 @@ function radius(th, z, p) {
   if (bottomBorder > 0 && zMm <= bottomBorder) return bottomBorderRadius(p);
 
   const topBorder = borderThicknessMm(p.top_border, p.height);
-  if (topBorder > 0 && (p.height - zMm) <= topBorder) return Math.max(1e-3, p.lip_radius);
+  const distToTop = p.height - zMm;
+  if (topBorder > 0 && distToTop <= topBorder) return Math.max(1e-3, p.lip_radius);
 
   const r0 = baseProfile(z, p);
   const env = waveEnvelope(z, p);
   const h = Math.cos(p.waves * th + twistPhase(z, p));
   const sk = p.skew_wave * Math.sin((Math.floor(p.waves / 2) + 1) * th - 0.7 * twistPhase(z, p));
-  return Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+  const waved = Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+
+  // Smoothly blend from waved profile into the top straight border so the upper
+  // cylinder does not start with a sharp geometric step over large wave fronts.
+  if (topBorder > 0) {
+    const transition = topTransitionMm(p);
+    if (transition > 0 && distToTop <= topBorder + transition) {
+      const t = smoothstep((distToTop - topBorder) / transition);
+      return Math.max(1e-3, p.lip_radius * (1 - t) + waved * t);
+    }
+  }
+
+  return waved;
 }
 
 function sampleHoneycomb(u, v) {
