@@ -93,8 +93,14 @@ Texture from uploaded image (best results):
 New border controls:
 - `bottom_border` (mm): keeps the bottom section straight as a cylinder at `base_radius`.
 - `top_border` (mm): keeps the top lip section straight as a cylinder at `lip_radius`.
+- `top_transition` (mm): smoothing band height below `top_border` to blend waves into the straight lip (set `0` for a sharp transition).
 - Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves/texture are not applied in those border zones).
-- Top border includes an automatic smooth transition band below the straight section, so upper waves blend into the lip instead of creating a sudden step.
+
+
+Preset import/export:
+- Click **Export preset** to save the current setup as JSON (shape params + texture settings + resolution + zoom).
+- Click **Import preset** to load a previously exported JSON and restore those values in the GUI.
+- Imported presets do not embed uploaded image pixels; if texture mode is `upload`, re-select the image file after import if needed.
 
 ## Single executable build (for sharing)
 

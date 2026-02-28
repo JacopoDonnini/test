@@ -1,10 +1,10 @@
 const presets = {
-  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
-  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
-  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
-  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
-  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
-  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, wave_roundness:0.0 },
+  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
 };
 
 const resolutionSliders = [
@@ -18,7 +18,7 @@ const viewSliders = [
 
 const sliders = [
   ['height', 80, 320, 1], ['base_radius', 8, 40, 0.2], ['neck_radius', 6, 34, 0.2], ['lip_radius', 6, 44, 0.2],
-  ['bottom_border', 0, 20, 0.1], ['top_border', 0, 20, 0.1],
+  ['bottom_border', 0, 20, 0.1], ['top_border', 0, 20, 0.1], ['top_transition', 0, 20, 0.1],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
   ['wave_roundness', 0.0, 1.0, 0.01],
   ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
@@ -67,11 +67,8 @@ function borderThicknessMm(value, height) {
 }
 
 function topTransitionMm(p) {
-  // Transition zone just below the top straight border to avoid abrupt overhangs.
-  // Keep it compact so the nice upper waves are preserved as much as possible.
-  const topBorder = borderThicknessMm(p.top_border, p.height);
-  if (topBorder <= 0) return 0;
-  return Math.max(0.8, Math.min(8.0, topBorder));
+  const transition = borderThicknessMm(p.top_transition, p.height);
+  return transition;
 }
 
 function bottomBorderRadius(p) {
@@ -601,6 +598,57 @@ function reloadSliders() {
   addTextureControls();
 }
 
+function exportPresetFile() {
+  const payload = {
+    version: 1,
+    preset_name: `${presetEl.value}_custom`,
+    params,
+    texture: { ...textureState },
+    mesh_resolution: { ...meshResolution },
+    view: { ...viewState },
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${payload.preset_name}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function importPresetFromObject(data) {
+  if (!data || typeof data !== 'object') throw new Error('Invalid preset JSON structure.');
+
+  const incomingParams = data.params && typeof data.params === 'object' ? data.params : data;
+
+  for (const [key, val] of Object.entries(incomingParams)) {
+    if (Object.prototype.hasOwnProperty.call(params, key) && Number.isFinite(Number(val))) {
+      params[key] = Number(val);
+    }
+  }
+
+  if (data.texture && typeof data.texture === 'object') {
+    if (typeof data.texture.mode === 'string' && textureModes.includes(data.texture.mode)) {
+      textureState.mode = data.texture.mode;
+    }
+    for (const k of ['depth', 'scaleU', 'scaleV']) {
+      if (Number.isFinite(Number(data.texture[k]))) textureState[k] = Number(data.texture[k]);
+    }
+  }
+
+  if (data.mesh_resolution && typeof data.mesh_resolution === 'object') {
+    for (const k of ['n_theta', 'n_z']) {
+      if (Number.isFinite(Number(data.mesh_resolution[k]))) meshResolution[k] = Math.max(8, Math.floor(Number(data.mesh_resolution[k])));
+    }
+  }
+
+  if (data.view && typeof data.view === 'object' && Number.isFinite(Number(data.view.zoom))) {
+    viewState.zoom = Number(data.view.zoom);
+  }
+
+  reloadSliders();
+  rebuildMeshes();
+}
+
 presetEl.addEventListener('change', () => {
   params = { ...presets[presetEl.value] };
   reloadSliders();
@@ -627,6 +675,31 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   link.download = `${presetEl.value}_gui.obj`;
   link.click();
   URL.revokeObjectURL(link.href);
+});
+
+
+
+document.getElementById('exportPresetBtn').addEventListener('click', () => {
+  exportPresetFile();
+});
+
+const importPresetInput = document.getElementById('importPresetInput');
+document.getElementById('importPresetBtn').addEventListener('click', () => {
+  importPresetInput.click();
+});
+
+importPresetInput.addEventListener('change', async () => {
+  const f = importPresetInput.files && importPresetInput.files[0];
+  if (!f) return;
+  try {
+    const txt = await f.text();
+    const parsed = JSON.parse(txt);
+    importPresetFromObject(parsed);
+  } catch (err) {
+    alert(`Could not import preset: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    importPresetInput.value = '';
+  }
 });
 
 canvas.addEventListener('mousedown', (e) => {
