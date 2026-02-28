@@ -179,20 +179,56 @@ def launch_server_mode(root: Path, host: str, port_pref: int, no_browser: bool) 
         server.server_close()
 
 
+def launch_with_fallbacks(root: Path, args: argparse.Namespace) -> None:
+    frozen = bool(getattr(sys, "frozen", False))
+
+    # User explicit mode choice should be respected as first attempt.
+    if args.file and not args.serve:
+        try:
+            launch_file_mode(root, args.no_browser)
+            return
+        except Exception:
+            logging.exception("File mode failed; falling back to server mode")
+            print("File mode failed, falling back to local server mode...")
+            launch_server_mode(root, args.host, args.port, args.no_browser)
+            return
+
+    if args.serve:
+        try:
+            launch_server_mode(root, args.host, args.port, args.no_browser)
+            return
+        except Exception:
+            logging.exception("Server mode failed; falling back to file mode")
+            print("Server mode failed, falling back to file mode...")
+            launch_file_mode(root, args.no_browser)
+            return
+
+    # Default mode: frozen builds prefer server mode, source runs prefer file mode.
+    if frozen:
+        logging.info("Frozen executable detected: defaulting to local server mode for stable asset loading")
+        print("Frozen executable detected: using local server mode for reliable asset loading.")
+        try:
+            launch_server_mode(root, args.host, args.port, args.no_browser)
+            return
+        except Exception:
+            logging.exception("Frozen server mode failed; trying file mode")
+            print("Server mode failed, trying file mode...")
+            launch_file_mode(root, args.no_browser)
+            return
+
+    try:
+        launch_file_mode(root, args.no_browser)
+    except Exception:
+        logging.exception("File mode failed in source run; trying server mode")
+        print("File mode failed, trying local server mode...")
+        launch_server_mode(root, args.host, args.port, args.no_browser)
+
+
 def main() -> None:
     configure_logging()
     args = parse_args()
     root = app_root()
-
-    force_serve_for_frozen = bool(getattr(sys, "frozen", False) and not args.file)
-
-    if args.serve or force_serve_for_frozen:
-        if force_serve_for_frozen and not args.serve:
-            logging.info("Frozen executable detected: defaulting to local server mode for stable asset loading")
-            print("Frozen executable detected: using local server mode for reliable asset loading.")
-        launch_server_mode(root, args.host, args.port, args.no_browser)
-    else:
-        launch_file_mode(root, args.no_browser)
+    launch_with_fallbacks(root, args)
 
 
 if __name__ == "__main__":

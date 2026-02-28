@@ -60,6 +60,8 @@ From source checkout, this opens the GUI directly via `file://.../gui/index.html
 
 When running the packaged PyInstaller executable, it automatically uses localhost server mode to avoid missing-file issues in one-file extraction mode.
 
+If the preferred mode fails at startup, the launcher now automatically falls back to the other mode (server ↔ file) as a fail-safe.
+
 If you explicitly want localhost mode:
 
 ```bash

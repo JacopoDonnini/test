@@ -601,7 +601,7 @@ const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
   option.value = name;
-  option.textContent = name.replaceAll('_', ' ');
+  option.textContent = name.split('_').join(' ');
   presetEl.appendChild(option);
 });
 presetEl.value = 'spiral_ribbed';
