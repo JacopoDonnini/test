@@ -86,6 +86,7 @@ Features:
 - Friendly grouped controls (View, Resolution, Shape, Borders, Waves, Flow, Texture) with readable labels
 - Live parameter help card (hover/focus controls for plain-language explanations)
 - Preset JSON import/export buttons in the GUI sidebar
+- Bottom engraving workflow in the same app: upload SVG, place it in a dedicated bottom-view preview, then engrave it on the outside base in exported OBJ
 
 Texture from uploaded image (best results):
 - Prefer **PNG grayscale** (8-bit) for predictable carving depth.

@@ -19,3 +19,9 @@ main { position: relative; }
 .row span:first-child { color:#e7e7e7; }
 select { width: 100%; }
 button { flex: 1; }
+
+.viewer-stack { display:flex; flex-direction:column; height:100%; }
+#view { flex: 1 1 auto; min-height: 0; }
+.bottom-view-card { border-top: 1px solid #2a2a2a; background:#131313; padding:10px; }
+.bottom-view-head { font-size:.82rem; color:#cfcfcf; margin-bottom:8px; }
+#bottomView { width: 100%; max-width: 320px; aspect-ratio:1/1; border:1px solid #333; border-radius:8px; background:#0f1012; display:block; }

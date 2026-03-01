@@ -60,9 +60,14 @@ const FIELD_INFO = {
   scaleU: { label: 'Texture Repeat Around', unit: '', group: 'Texture', description: 'Horizontal repetition around circumference (U).' },
   scaleV: { label: 'Texture Repeat Height', unit: '', group: 'Texture', description: 'Vertical repetition along height (V).' },
   upload_texture: { label: 'Upload Texture Image', group: 'Texture', description: 'Upload PNG/JPG/WEBP; grayscale PNG gives best consistency.' },
+
+  bottom_svg_scale: { label: 'SVG Scale', unit: 'x', group: 'Bottom Engraving', description: 'Scale of the SVG engraving on the flat outside base.' },
+  bottom_svg_tx: { label: 'SVG Offset X', unit: '', group: 'Bottom Engraving', description: 'Horizontal shift of engraving on bottom base (negative to positive).' },
+  bottom_svg_ty: { label: 'SVG Offset Y', unit: '', group: 'Bottom Engraving', description: 'Vertical shift of engraving on bottom base (negative to positive).' },
+  bottom_svg_upload: { label: 'Upload Bottom SVG', group: 'Bottom Engraving', description: 'Upload an SVG logo/shape to engrave on the outside bottom surface.' },
 };
 
-const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Texture'];
+const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Texture', 'Bottom Engraving'];
 
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
@@ -71,6 +76,8 @@ let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
 let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
+let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, depth: 1.2 };
+let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement }
 
 let params = { ...presets.spiral_ribbed };
 let meshPreview = null;
@@ -87,6 +94,8 @@ let interactiveRequested = false;
 
 const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
+const bottomCanvas = document.getElementById('bottomView');
+const bottomCtx = bottomCanvas ? bottomCanvas.getContext('2d') : null;
 
 function smoothstep(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
 function fract(x) { return x - Math.floor(x); }
@@ -225,6 +234,124 @@ function sampleTexture(u, v) {
   return 0.5;
 }
 
+function sampleBottomSvgMask(x, y, radiusRef) {
+  if (!bottomSvgMask || radiusRef <= 1e-6) return 0;
+  const nx = x / radiusRef;
+  const ny = y / radiusRef;
+  const su = (nx - bottomSvgState.bottom_svg_tx) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
+  const sv = (ny - bottomSvgState.bottom_svg_ty) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
+  const u = 0.5 + su * 0.5;
+  const v = 0.5 - sv * 0.5;
+  if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+
+  const fx = u * (bottomSvgMask.w - 1);
+  const fy = v * (bottomSvgMask.h - 1);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(bottomSvgMask.w - 1, x0 + 1);
+  const y1 = Math.min(bottomSvgMask.h - 1, y0 + 1);
+  const tx = fx - x0;
+  const ty = fy - y0;
+
+  const i00 = y0 * bottomSvgMask.w + x0;
+  const i10 = y0 * bottomSvgMask.w + x1;
+  const i01 = y1 * bottomSvgMask.w + x0;
+  const i11 = y1 * bottomSvgMask.w + x1;
+
+  const a = bottomSvgMask.data[i00] * (1 - tx) + bottomSvgMask.data[i10] * tx;
+  const b = bottomSvgMask.data[i01] * (1 - tx) + bottomSvgMask.data[i11] * tx;
+  return a * (1 - ty) + b * ty;
+}
+
+function drawBottomViewer() {
+  if (!bottomCtx || !bottomCanvas) return;
+  const w = bottomCanvas.width;
+  const h = bottomCanvas.height;
+  bottomCtx.fillStyle = '#0f1012';
+  bottomCtx.fillRect(0, 0, w, h);
+
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+  const r = Math.min(w, h) * 0.42;
+
+  bottomCtx.strokeStyle = '#565a60';
+  bottomCtx.lineWidth = 1.5;
+  bottomCtx.beginPath();
+  bottomCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  bottomCtx.stroke();
+
+  bottomCtx.save();
+  bottomCtx.beginPath();
+  bottomCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  bottomCtx.clip();
+
+  bottomCtx.fillStyle = '#1a1d22';
+  bottomCtx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+
+  if (bottomSvgMask && bottomSvgMask.image) {
+    const size = 2 * r * bottomSvgState.bottom_svg_scale;
+    const dx = cx + bottomSvgState.bottom_svg_tx * r - size * 0.5;
+    const dy = cy - bottomSvgState.bottom_svg_ty * r - size * 0.5;
+    bottomCtx.globalAlpha = 0.85;
+    bottomCtx.imageSmoothingEnabled = true;
+    bottomCtx.drawImage(bottomSvgMask.image, dx, dy, size, size);
+    bottomCtx.globalAlpha = 1.0;
+  }
+
+  bottomCtx.restore();
+
+  bottomCtx.fillStyle = '#bfc6d0';
+  bottomCtx.font = '12px Inter, system-ui, sans-serif';
+  bottomCtx.fillText('Outside bottom view', 12, h - 12);
+}
+
+function loadBottomSvgFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read SVG file.'));
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      if (!text.toLowerCase().includes('<svg')) {
+        reject(new Error('Selected file is not a valid SVG.'));
+        return;
+      }
+      const blob = new Blob([text], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = 1024;
+          c.height = 1024;
+          const cctx = c.getContext('2d');
+          cctx.clearRect(0, 0, c.width, c.height);
+          cctx.drawImage(img, 0, 0, c.width, c.height);
+          const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
+          const mask = new Float32Array(c.width * c.height);
+          for (let i = 0; i < mask.length; i++) {
+            const a = rgba[i * 4 + 3] / 255.0;
+            const lum = (0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2]) / 255.0;
+            mask[i] = a * (1 - lum);
+          }
+          bottomSvgMask = { w: c.width, h: c.height, data: mask, image: img };
+          drawBottomViewer();
+          rebuildMeshes();
+          resolve()
+        } catch (err) {
+          reject(err);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to render SVG image.'));
+      };
+      img.src = url;
+    };
+    reader.readAsText(file);
+  });
+}
+
 function smoothCircularRing(values, radius, strength, passes) {
   const n = values.length;
   let cur = values.slice();
@@ -316,9 +443,51 @@ function buildMesh(p, nTheta, nZ) {
     }
   }
 
-  const bottomCenter = verts.length;
-  verts.push([0, 0, 0]);
-  for (let it = 0; it < nTheta; it++) faces.push([bottomCenter, idx(it + 1, 0), idx(it, 0)]);
+  // Build a tessellated bottom cap so SVG engraving can be carved on the outside base.
+  const bottomStart = verts.length;
+  const nR = Math.max(10, Math.floor(Math.sqrt(nTheta) * 3));
+
+  const ringOffsets = [];
+  for (let ir = 0; ir <= nR; ir++) {
+    const t = ir / nR;
+    if (ir === 0) {
+      ringOffsets.push(verts.length - bottomStart);
+      verts.push([0, 0, 0]);
+      continue;
+    }
+    ringOffsets.push(verts.length - bottomStart);
+    for (let it = 0; it < nTheta; it++) {
+      const th = 2 * Math.PI * it / nTheta;
+      const boundary = verts[idx(it, 0)];
+      const x = boundary[0] * t;
+      const y = boundary[1] * t;
+      const rRef = Math.max(1e-6, Math.hypot(boundary[0], boundary[1]));
+      const mask = sampleBottomSvgMask(x, y, rRef);
+      const carve = Math.max(0, Math.min(1, mask));
+      const zBottom = -bottomSvgState.depth * carve;
+      verts.push([x, y, zBottom]);
+    }
+  }
+
+  for (let it = 0; it < nTheta; it++) {
+    const a = bottomStart;
+    const b = bottomStart + ringOffsets[1] + it;
+    const c = bottomStart + ringOffsets[1] + ((it + 1) % nTheta);
+    faces.push([a, b, c]);
+  }
+
+  for (let ir = 1; ir < nR; ir++) {
+    const baseA = bottomStart + ringOffsets[ir];
+    const baseB = bottomStart + ringOffsets[ir + 1];
+    for (let it = 0; it < nTheta; it++) {
+      const a = baseA + it;
+      const b = baseA + ((it + 1) % nTheta);
+      const c = baseB + it;
+      const d = baseB + ((it + 1) % nTheta);
+      faces.push([a, c, b], [b, c, d]);
+    }
+  }
+
   return { verts, faces, nTheta, nZ };
 }
 
@@ -597,6 +766,54 @@ function addTextureControls() {
   });
 }
 
+function addBottomEngravingControls() {
+  const group = getOrCreateGroup('Bottom Engraving');
+
+  const fileWrap = document.createElement('div');
+  fileWrap.className = 'control';
+  fileWrap.title = FIELD_INFO.bottom_svg_upload.description;
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = '<span>Upload Bottom SVG</span><span></span>';
+  fileWrap.appendChild(row);
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.svg,image/svg+xml';
+  input.addEventListener('focus', () => showHelpFor('bottom_svg_upload'));
+  input.addEventListener('mouseenter', () => showHelpFor('bottom_svg_upload'));
+  input.addEventListener('change', async () => {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    try {
+      await loadBottomSvgFile(f);
+      showHelpFor('bottom_svg_upload');
+    } catch (err) {
+      alert(`Could not load SVG: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      input.value = '';
+    }
+  });
+  fileWrap.appendChild(input);
+  group.appendChild(fileWrap);
+
+  addControl('bottom_svg_scale', 0.1, 1.6, 0.01, bottomSvgState, (v) => {
+    bottomSvgState.bottom_svg_scale = Number(v);
+    drawBottomViewer();
+    rebuildMeshes();
+  });
+  addControl('bottom_svg_tx', -1.0, 1.0, 0.01, bottomSvgState, (v) => {
+    bottomSvgState.bottom_svg_tx = Number(v);
+    drawBottomViewer();
+    rebuildMeshes();
+  });
+  addControl('bottom_svg_ty', -1.0, 1.0, 0.01, bottomSvgState, (v) => {
+    bottomSvgState.bottom_svg_ty = Number(v);
+    drawBottomViewer();
+    rebuildMeshes();
+  });
+}
+
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
@@ -627,6 +844,8 @@ function reloadSliders() {
   }));
 
   addTextureControls();
+  addBottomEngravingControls();
+  drawBottomViewer();
   showHelpFor('height');
 }
 
@@ -769,3 +988,4 @@ window.addEventListener('resize', () => scheduleDraw(false));
 
 reloadSliders();
 rebuildMeshes();
+drawBottomViewer();
