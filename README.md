@@ -86,11 +86,11 @@ Features:
 - Friendly grouped controls (View, Resolution, Shape, Borders, Waves, Flow, Texture) with readable labels
 - Live parameter help card (hover/focus controls for plain-language explanations)
 - Preset JSON import/export buttons in the GUI sidebar
-- Bottom engraving workflow in the same app: upload SVG, place it in a dedicated bottom-view preview, then engrave it on the outside base in exported OBJ
+- Bottom engraving workflow in the same app: upload SVG, place it in a dedicated bottom-view preview, set engraving depth, then engrave it on the outside base in exported OBJ
 
 Texture from uploaded image (best results):
 - Prefer **PNG grayscale** (8-bit) for predictable carving depth.
-- Use higher-resolution textures (e.g. 1024×1024 to 2048×2048). The GUI now preserves more source detail and uses smoother sampling.
+- Use higher-resolution textures (e.g. 1024×1024 to 4096×4096). The GUI preserves more source detail and applies smoother sampling to reduce jagged contours.
 - Use **seamless/tileable** textures if you set high `scaleU`/`scaleV`, otherwise a seam can appear where wrapping occurs.
 - In the GUI, choose `texture_mode = upload`, then set:
   - `depth` for carving strength

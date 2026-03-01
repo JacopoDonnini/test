@@ -65,6 +65,7 @@ const FIELD_INFO = {
   bottom_svg_tx: { label: 'SVG Offset X', unit: '', group: 'Bottom Engraving', description: 'Horizontal shift of engraving on bottom base (negative to positive).' },
   bottom_svg_ty: { label: 'SVG Offset Y', unit: '', group: 'Bottom Engraving', description: 'Vertical shift of engraving on bottom base (negative to positive).' },
   bottom_svg_upload: { label: 'Upload Bottom SVG', group: 'Bottom Engraving', description: 'Upload an SVG logo/shape to engrave on the outside bottom surface.' },
+  bottom_svg_depth: { label: 'SVG Engrave Depth', unit: 'mm', group: 'Bottom Engraving', description: 'How deep the bottom SVG is engraved into the base.' },
 };
 
 const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Texture', 'Bottom Engraving'];
@@ -76,7 +77,7 @@ let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
 let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
-let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, depth: 1.2 };
+let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, bottom_svg_depth: 1.2 };
 let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement }
 
 let params = { ...presets.spiral_ribbed };
@@ -201,28 +202,60 @@ function samplePaper(u, v) {
   return Math.max(0, Math.min(1, 0.4 * n1 + 0.35 * n2 + 0.25 * n3));
 }
 
+function blurFloatMap(data, w, h, passes = 1) {
+  let src = data;
+  for (let pass = 0; pass < passes; pass++) {
+    const dst = new Float32Array(src.length);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let acc = 0;
+        let count = 0;
+        for (let oy = -1; oy <= 1; oy++) {
+          const yy = Math.max(0, Math.min(h - 1, y + oy));
+          for (let ox = -1; ox <= 1; ox++) {
+            const xx = Math.max(0, Math.min(w - 1, x + ox));
+            acc += src[yy * w + xx];
+            count += 1;
+          }
+        }
+        dst[y * w + x] = acc / count;
+      }
+    }
+    src = dst;
+  }
+  return src;
+}
+
 function sampleUploaded(u, v) {
   if (!uploadedTexture) return 0.5;
+
+  const sampleBilinear = (uu, vv) => {
+    const fx = uu * (uploadedTexture.w - 1);
+    const fy = vv * (uploadedTexture.h - 1);
+    const x0 = Math.floor(fx), y0 = Math.floor(fy);
+    const x1 = Math.min(uploadedTexture.w - 1, x0 + 1);
+    const y1 = Math.min(uploadedTexture.h - 1, y0 + 1);
+    const tx = fx - x0, ty = fy - y0;
+    const i00 = y0 * uploadedTexture.w + x0;
+    const i10 = y0 * uploadedTexture.w + x1;
+    const i01 = y1 * uploadedTexture.w + x0;
+    const i11 = y1 * uploadedTexture.w + x1;
+    const a = uploadedTexture.data[i00] * (1 - tx) + uploadedTexture.data[i10] * tx;
+    const b = uploadedTexture.data[i01] * (1 - tx) + uploadedTexture.data[i11] * tx;
+    return a * (1 - ty) + b * ty;
+  };
+
   const uu = fract(u * textureState.scaleU);
   const vv = fract(v * textureState.scaleV);
+  const du = 0.5 / Math.max(2, uploadedTexture.w);
+  const dv = 0.5 / Math.max(2, uploadedTexture.h);
 
-  const fx = uu * uploadedTexture.w;
-  const fy = vv * uploadedTexture.h;
-  const x0 = Math.floor(fx) % uploadedTexture.w;
-  const y0 = Math.floor(fy) % uploadedTexture.h;
-  const x1 = (x0 + 1) % uploadedTexture.w;
-  const y1 = (y0 + 1) % uploadedTexture.h;
-  const tx = fx - Math.floor(fx);
-  const ty = fy - Math.floor(fy);
-
-  const i00 = y0 * uploadedTexture.w + x0;
-  const i10 = y0 * uploadedTexture.w + x1;
-  const i01 = y1 * uploadedTexture.w + x0;
-  const i11 = y1 * uploadedTexture.w + x1;
-
-  const a = uploadedTexture.data[i00] * (1 - tx) + uploadedTexture.data[i10] * tx;
-  const b = uploadedTexture.data[i01] * (1 - tx) + uploadedTexture.data[i11] * tx;
-  return a * (1 - ty) + b * ty;
+  let acc = 0;
+  acc += sampleBilinear(fract(uu - du), fract(vv - dv));
+  acc += sampleBilinear(fract(uu + du), fract(vv - dv));
+  acc += sampleBilinear(fract(uu - du), fract(vv + dv));
+  acc += sampleBilinear(fract(uu + du), fract(vv + dv));
+  return acc * 0.25;
 }
 
 function sampleTexture(u, v) {
@@ -236,30 +269,40 @@ function sampleTexture(u, v) {
 
 function sampleBottomSvgMask(x, y, radiusRef) {
   if (!bottomSvgMask || radiusRef <= 1e-6) return 0;
+
+  const sampleBilinear = (u, v) => {
+    if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+    const fx = u * (bottomSvgMask.w - 1);
+    const fy = v * (bottomSvgMask.h - 1);
+    const x0 = Math.floor(fx), y0 = Math.floor(fy);
+    const x1 = Math.min(bottomSvgMask.w - 1, x0 + 1);
+    const y1 = Math.min(bottomSvgMask.h - 1, y0 + 1);
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const i00 = y0 * bottomSvgMask.w + x0;
+    const i10 = y0 * bottomSvgMask.w + x1;
+    const i01 = y1 * bottomSvgMask.w + x0;
+    const i11 = y1 * bottomSvgMask.w + x1;
+    const a = bottomSvgMask.data[i00] * (1 - tx) + bottomSvgMask.data[i10] * tx;
+    const b = bottomSvgMask.data[i01] * (1 - tx) + bottomSvgMask.data[i11] * tx;
+    return a * (1 - ty) + b * ty;
+  };
+
   const nx = x / radiusRef;
   const ny = y / radiusRef;
   const su = (nx - bottomSvgState.bottom_svg_tx) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
   const sv = (ny - bottomSvgState.bottom_svg_ty) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
   const u = 0.5 + su * 0.5;
   const v = 0.5 - sv * 0.5;
-  if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
 
-  const fx = u * (bottomSvgMask.w - 1);
-  const fy = v * (bottomSvgMask.h - 1);
-  const x0 = Math.floor(fx), y0 = Math.floor(fy);
-  const x1 = Math.min(bottomSvgMask.w - 1, x0 + 1);
-  const y1 = Math.min(bottomSvgMask.h - 1, y0 + 1);
-  const tx = fx - x0;
-  const ty = fy - y0;
-
-  const i00 = y0 * bottomSvgMask.w + x0;
-  const i10 = y0 * bottomSvgMask.w + x1;
-  const i01 = y1 * bottomSvgMask.w + x0;
-  const i11 = y1 * bottomSvgMask.w + x1;
-
-  const a = bottomSvgMask.data[i00] * (1 - tx) + bottomSvgMask.data[i10] * tx;
-  const b = bottomSvgMask.data[i01] * (1 - tx) + bottomSvgMask.data[i11] * tx;
-  return a * (1 - ty) + b * ty;
+  const du = 0.5 / Math.max(2, bottomSvgMask.w);
+  const dv = 0.5 / Math.max(2, bottomSvgMask.h);
+  let acc = 0;
+  acc += sampleBilinear(u - du, v - dv);
+  acc += sampleBilinear(u + du, v - dv);
+  acc += sampleBilinear(u - du, v + dv);
+  acc += sampleBilinear(u + du, v + dv);
+  return acc * 0.25;
 }
 
 function drawBottomViewer() {
@@ -320,11 +363,18 @@ function loadBottomSvgFile(file) {
       img.onload = () => {
         try {
           const c = document.createElement('canvas');
-          c.width = 1024;
-          c.height = 1024;
+          c.width = 4096;
+          c.height = 4096;
           const cctx = c.getContext('2d');
           cctx.clearRect(0, 0, c.width, c.height);
-          cctx.drawImage(img, 0, 0, c.width, c.height);
+          const aspect = Math.max(1e-6, img.width / Math.max(1, img.height));
+          let dw = c.width, dh = Math.round(dw / aspect);
+          if (dh > c.height) { dh = c.height; dw = Math.round(dh * aspect); }
+          const dx = Math.floor((c.width - dw) / 2);
+          const dy = Math.floor((c.height - dh) / 2);
+          cctx.imageSmoothingEnabled = true;
+          cctx.imageSmoothingQuality = 'high';
+          cctx.drawImage(img, dx, dy, dw, dh);
           const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
           const mask = new Float32Array(c.width * c.height);
           for (let i = 0; i < mask.length; i++) {
@@ -332,7 +382,8 @@ function loadBottomSvgFile(file) {
             const lum = (0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2]) / 255.0;
             mask[i] = a * (1 - lum);
           }
-          bottomSvgMask = { w: c.width, h: c.height, data: mask, image: img };
+          const smoothMask = blurFloatMap(mask, c.width, c.height, 1);
+          bottomSvgMask = { w: c.width, h: c.height, data: smoothMask, image: img };
           drawBottomViewer();
           rebuildMeshes();
           resolve()
@@ -377,12 +428,18 @@ function smoothCircularRing(values, radius, strength, passes) {
 function effectiveResolution(maxTriangles) {
   let nTheta = Math.max(8, Math.floor(meshResolution.n_theta));
   let nZ = Math.max(8, Math.floor(meshResolution.n_z));
-  const tri = () => 2 * nTheta * nZ + nTheta;
+  const tri = () => {
+    const side = 2 * nTheta * nZ;
+    const nR = Math.max(10, Math.floor(Math.sqrt(nTheta) * 3));
+    const bottom = nTheta + 2 * nTheta * Math.max(0, nR - 1);
+    return side + bottom;
+  };
 
   if (tri() <= maxTriangles) return { nTheta, nZ };
 
-  const ratio = nTheta / nZ;
-  const scaledZ = Math.sqrt(maxTriangles / (2 * Math.max(1e-6, ratio)));
+  const ratio = nTheta / Math.max(1e-6, nZ);
+  const approxCoeff = 2 + (6 / Math.max(1, Math.sqrt(nTheta))); // include bottom cap cost roughly
+  const scaledZ = Math.sqrt(maxTriangles / Math.max(1e-6, approxCoeff * ratio));
   nZ = Math.max(16, Math.floor(scaledZ));
   nTheta = Math.max(16, Math.floor(nZ * ratio));
 
@@ -464,7 +521,7 @@ function buildMesh(p, nTheta, nZ) {
       const rRef = Math.max(1e-6, Math.hypot(boundary[0], boundary[1]));
       const mask = sampleBottomSvgMask(x, y, rRef);
       const carve = Math.max(0, Math.min(1, mask));
-      const zBottom = -bottomSvgState.depth * carve;
+      const zBottom = Math.max(0, bottomSvgState.bottom_svg_depth) * carve;
       verts.push([x, y, zBottom]);
     }
   }
@@ -736,7 +793,8 @@ function addTextureControls() {
         const r = rgba[i * 4 + 0], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
         lum[i] = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
       }
-      uploadedTexture = { w: c.width, h: c.height, data: lum };
+      const smoothLum = blurFloatMap(lum, c.width, c.height, 1);
+      uploadedTexture = { w: c.width, h: c.height, data: smoothLum };
       textureState.mode = 'upload';
       modeSelect.value = 'upload';
       rebuildMeshes();
@@ -812,6 +870,10 @@ function addBottomEngravingControls() {
     drawBottomViewer();
     rebuildMeshes();
   });
+  addControl('bottom_svg_depth', 0.0, 4.0, 0.05, bottomSvgState, (v) => {
+    bottomSvgState.bottom_svg_depth = Number(v);
+    rebuildMeshes();
+  });
 }
 
 const presetEl = document.getElementById('preset');
@@ -857,6 +919,7 @@ function exportPresetFile() {
     texture: { ...textureState },
     mesh_resolution: { ...meshResolution },
     view: { ...viewState },
+    bottom_engraving: { ...bottomSvgState },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
@@ -894,6 +957,12 @@ function importPresetFromObject(data) {
 
   if (data.view && typeof data.view === 'object' && Number.isFinite(Number(data.view.zoom))) {
     viewState.zoom = Number(data.view.zoom);
+  }
+
+  if (data.bottom_engraving && typeof data.bottom_engraving === 'object') {
+    for (const k of ['bottom_svg_scale', 'bottom_svg_tx', 'bottom_svg_ty', 'bottom_svg_depth']) {
+      if (Number.isFinite(Number(data.bottom_engraving[k]))) bottomSvgState[k] = Number(data.bottom_engraving[k]);
+    }
   }
 
   reloadSliders();
