@@ -475,13 +475,30 @@ function loadBottomSvgFile(file) {
           cctx.imageSmoothingQuality = 'high';
           cctx.drawImage(img, dx, dy, dw, dh);
           const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
-          const mask = new Float32Array(c.width * c.height);
-          for (let i = 0; i < mask.length; i++) {
+          const maskDark = new Float32Array(c.width * c.height);
+          const maskAlpha = new Float32Array(c.width * c.height);
+          let darkSum = 0;
+          let alphaSum = 0;
+          let darkMax = 0;
+          let alphaMax = 0;
+          for (let i = 0; i < maskDark.length; i++) {
             const a = rgba[i * 4 + 3] / 255.0;
             const lum = (0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2]) / 255.0;
-            mask[i] = a * (1 - lum);
+            const dark = a * (1 - lum);
+            maskDark[i] = dark;
+            maskAlpha[i] = a;
+            darkSum += dark;
+            alphaSum += a;
+            if (dark > darkMax) darkMax = dark;
+            if (a > alphaMax) alphaMax = a;
           }
-          const smoothMask = blurFloatMap(mask, c.width, c.height, 1);
+
+          const pixelCount = Math.max(1, maskDark.length);
+          const darkMean = darkSum / pixelCount;
+          const alphaMean = alphaSum / pixelCount;
+          const useAlphaFallback = (darkMax < 0.02) || (darkMean < 0.001 && alphaMean > 0.002);
+          const baseMask = useAlphaFallback ? maskAlpha : maskDark;
+          const smoothMask = blurFloatMap(baseMask, c.width, c.height, 1);
           bottomSvgMask = { w: c.width, h: c.height, data: smoothMask, image: img };
           drawBottomViewer();
           rebuildMeshes();
@@ -628,14 +645,14 @@ function buildMesh(p, nTheta, nZ) {
       const y = rr * Math.sin(th);
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
-      const zBottom = -depth * carve;
+      const zBottom = depth * carve;
       ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
     }
   }
 
   const centerMask = sampleBottomSvgMask(0, 0, maxBaseRadius);
-  const centerZ = -depth * Math.max(0, Math.min(1, centerMask));
+  const centerZ = depth * Math.max(0, Math.min(1, centerMask));
   const centerIdx = verts.length;
   verts.push([0, 0, centerZ]);
 
