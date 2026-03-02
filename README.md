@@ -80,7 +80,7 @@ Features:
 - Mesh resolution controls (`n_theta`, `n_z`) to increase triangle count and smoothness (`n_theta` now supports very high values for near-smooth silhouettes)
 - Zoom control (slider + mouse wheel) with auto-fit so tall vases stay in frame
 - Improved two-sided lighting so inside surfaces render correctly
-- Expanded wave-related tuner ranges (`waves`, `wave_amp`, `wave_z_falloff`, `skew_wave`, `seed_phase`) for more extreme styles
+- Expanded wave-related tuner ranges (`waves`, `wave_amp`, `wave_z_falloff`, `skew_wave`, `seed_phase`) for more extreme styles (`waves=0` disables waves)
 - Wave dampener (`wave_roundness`) to smooth/round harsh wave peaks and edges
 - Adaptive preview rendering for high resolutions (interactive decimation + full-res export) to keep interaction smooth
 - Friendly grouped controls (View, Resolution, Shape, Borders, Waves, Flow, Texture) with readable labels

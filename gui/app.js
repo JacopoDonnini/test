@@ -21,7 +21,7 @@ const sliders = [
   ['bottom_border', 0, 20, 0.1], ['top_border', 0, 20, 0.1], ['top_transition', 0, 20, 0.1],
   ['belly_amp', 0, 24, 0.2], ['belly_center', 0.1, 0.9, 0.01], ['belly_width', 0.05, 0.45, 0.01],
   ['wave_roundness', 0.0, 1.0, 0.01],
-  ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
+  ['waves', 0, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
   ['bubble_count', 0, 28, 1], ['bubble_depth', 0.0, 0.35, 0.005], ['bubble_size', 0.03, 0.32, 0.005],
 ];
@@ -46,7 +46,7 @@ const FIELD_INFO = {
   top_border: { label: 'Top Straight Band', unit: 'mm', group: 'Borders', description: 'Keeps the lip section straight/cylindrical for this height.' },
   top_transition: { label: 'Top Blend Band', unit: 'mm', group: 'Borders', description: 'Smooth blend height from waves into the top straight band.' },
 
-  waves: { label: 'Wave Count', unit: '', group: 'Waves', description: 'Number of wave lobes around the circumference.' },
+  waves: { label: 'Wave Count', unit: '', group: 'Waves', description: 'Number of wave lobes around the circumference (set 0 to disable waves).' },
   wave_amp: { label: 'Wave Strength', unit: '', group: 'Waves', description: 'How strong the wave deformation is.' },
   wave_z_falloff: { label: 'Bottom Wave Fade', unit: '', group: 'Waves', description: 'How much waves fade out near the bottom.' },
   wave_roundness: { label: 'Wave Smoothing', unit: '', group: 'Waves', description: 'Rounds sharp peaks by smoothing each ring.' },
@@ -160,7 +160,7 @@ function buildBubbleSet(p) {
   for (let i = 0; i < count; i++) {
     const u = hash01(i + seed, 1.13 + seed * 0.37);
     const z = 0.08 + 0.84 * hash01(i + 33.7 + seed, 9.71);
-    const amp = 0.7 + 0.6 * hash01(i + 19.1, seed + 4.2);
+    const amp = 0.9 + 0.8 * hash01(i + 19.1, seed + 4.2);
     set.push({ u, z, amp });
   }
   return set;
@@ -179,11 +179,12 @@ function applyBubbleField(r, th, z01, p, bubbleSet) {
     du = Math.min(du, 1 - du);
     const dz = z01 - b.z;
     const d2 = (du * du + dz * dz) / Math.max(1e-6, size * size);
-    field += b.amp * Math.exp(-d2 * 5.5);
+    const g = b.amp * Math.exp(-d2 * 6.0);
+    if (g > field) field = g;
   }
 
-  const carve = Math.max(0, Math.min(1.25, field));
-  return Math.max(1e-3, r * (1 - depth * 0.12 * carve));
+  const bubble = Math.max(0, Math.min(1.5, field));
+  return Math.max(1e-3, r * (1 + depth * 0.55 * bubble));
 }
 
 function radius(th, z, p) {
@@ -196,10 +197,14 @@ function radius(th, z, p) {
   if (topBorder > 0 && distToTop <= topBorder) return Math.max(1e-3, p.lip_radius);
 
   const r0 = baseProfile(z, p);
-  const env = waveEnvelope(z, p);
-  const h = Math.cos(p.waves * th + twistPhase(z, p));
-  const sk = p.skew_wave * Math.sin((Math.floor(p.waves / 2) + 1) * th - 0.7 * twistPhase(z, p));
-  const waved = Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+  const wavesCount = Math.max(0, Math.floor(Number(p.waves || 0)));
+  let waved = r0;
+  if (wavesCount > 0) {
+    const env = waveEnvelope(z, p);
+    const h = Math.cos(wavesCount * th + twistPhase(z, p));
+    const sk = p.skew_wave * Math.sin((Math.floor(wavesCount / 2) + 1) * th - 0.7 * twistPhase(z, p));
+    waved = Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+  }
 
   // Smoothly blend from waved profile into the top straight border so the upper
   // cylinder does not start with a sharp geometric step over large wave fronts.
@@ -985,7 +990,7 @@ function reloadSliders() {
   }));
 
   sliders.forEach(([name, min, max, step]) => addControl(name, min, max, step, params, (v) => {
-    params[name] = name === 'waves' ? Number.parseInt(v, 10) : Number(v);
+    params[name] = (name === 'waves' || name === 'bubble_count') ? Number.parseInt(v, 10) : Number(v);
     rebuildMeshes();
   }));
 
