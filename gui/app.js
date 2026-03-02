@@ -1,10 +1,10 @@
 const presets = {
-  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
-  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
-  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
-  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
-  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
-  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0 },
+  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
 };
 
 const resolutionSliders = [
@@ -23,6 +23,7 @@ const sliders = [
   ['wave_roundness', 0.0, 1.0, 0.01],
   ['waves', 1, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
+  ['bubble_count', 0, 28, 1], ['bubble_depth', 0.0, 0.35, 0.005], ['bubble_size', 0.03, 0.32, 0.005],
 ];
 
 const textureModes = ['none', 'honeycomb', 'bark', 'paper', 'upload'];
@@ -54,6 +55,9 @@ const FIELD_INFO = {
   twist_curve: { label: 'Twist Curve', unit: '', group: 'Flow', description: 'Makes twist accelerate or decelerate with height.' },
   skew_wave: { label: 'Wave Asymmetry', unit: '', group: 'Flow', description: 'Adds asymmetry for a more organic look.' },
   seed_phase: { label: 'Wave Phase', unit: 'rad', group: 'Flow', description: 'Initial rotational phase of waves.' },
+  bubble_count: { label: 'Bubble Count', unit: '', group: 'Details', description: 'Number of bubble-like dimples scattered on the vase body.' },
+  bubble_depth: { label: 'Bubble Depth', unit: '', group: 'Details', description: 'Strength of bubble dimples (higher values carve deeper).'},
+  bubble_size: { label: 'Bubble Size', unit: '', group: 'Details', description: 'Approximate bubble footprint size.' },
 
   texture_mode: { label: 'Texture Type', group: 'Texture', description: 'Choose a built-in procedural texture or upload your own image.' },
   depth: { label: 'Texture Depth', unit: '', group: 'Texture', description: 'How strongly texture carves in/out on the surface.' },
@@ -68,7 +72,7 @@ const FIELD_INFO = {
   bottom_svg_depth: { label: 'SVG Engrave Depth', unit: 'mm', group: 'Bottom Engraving', description: 'How deep the bottom SVG is engraved into the base.' },
 };
 
-const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Texture', 'Bottom Engraving'];
+const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Details', 'Texture', 'Bottom Engraving'];
 
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
@@ -143,6 +147,45 @@ function waveEnvelope(z, p) {
   return center * fade;
 }
 function twistPhase(z, p) { return p.seed_phase + p.twist * z + p.twist_curve * z * z; }
+function hash01(a, b) {
+  const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+  return fract(x);
+}
+
+function buildBubbleSet(p) {
+  const count = Math.max(0, Math.floor(p.bubble_count || 0));
+  if (count <= 0) return [];
+  const set = [];
+  const seed = Number(p.seed_phase || 0);
+  for (let i = 0; i < count; i++) {
+    const u = hash01(i + seed, 1.13 + seed * 0.37);
+    const z = 0.08 + 0.84 * hash01(i + 33.7 + seed, 9.71);
+    const amp = 0.7 + 0.6 * hash01(i + 19.1, seed + 4.2);
+    set.push({ u, z, amp });
+  }
+  return set;
+}
+
+function applyBubbleField(r, th, z01, p, bubbleSet) {
+  if (!bubbleSet || bubbleSet.length === 0) return r;
+  const depth = Math.max(0, Number(p.bubble_depth || 0));
+  if (depth <= 1e-6) return r;
+  const size = Math.max(0.02, Number(p.bubble_size || 0.1));
+
+  const u = th / (2 * Math.PI);
+  let field = 0;
+  for (const b of bubbleSet) {
+    let du = Math.abs(u - b.u);
+    du = Math.min(du, 1 - du);
+    const dz = z01 - b.z;
+    const d2 = (du * du + dz * dz) / Math.max(1e-6, size * size);
+    field += b.amp * Math.exp(-d2 * 5.5);
+  }
+
+  const carve = Math.max(0, Math.min(1.25, field));
+  return Math.max(1e-3, r * (1 - depth * 0.12 * carve));
+}
+
 function radius(th, z, p) {
   const zMm = z * p.height;
   const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
@@ -459,6 +502,8 @@ function buildMesh(p, nTheta, nZ) {
   const verts = [];
   const faces = [];
 
+  const bubbleSet = buildBubbleSet(p);
+
   for (let iz = 0; iz <= nZ; iz++) {
     const z01 = iz / nZ;
     const z = z01 * p.height;
@@ -466,6 +511,7 @@ function buildMesh(p, nTheta, nZ) {
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
       let r = radius(th, z01, p);
+      r = applyBubbleField(r, th, z01, p, bubbleSet);
 
       if (!isInStraightZone(z01, p)) {
         const u = it / nTheta;
@@ -669,7 +715,7 @@ function rebuildMeshes() {
 function formatFieldValue(name, value) {
   const info = FIELD_INFO[name] || {};
   const numeric = Number(value);
-  if (name === 'waves' || name === 'n_theta' || name === 'n_z') return String(Math.round(numeric));
+  if (name === 'waves' || name === 'n_theta' || name === 'n_z' || name === 'bubble_count') return String(Math.round(numeric));
   if (!Number.isFinite(numeric)) return String(value);
   const fixed = Math.abs(numeric) >= 100 ? numeric.toFixed(1) : numeric.toFixed(2);
   return info.unit ? `${fixed} ${info.unit}` : fixed;

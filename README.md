@@ -89,6 +89,7 @@ Features:
 - Preset JSON import/export buttons in the GUI sidebar
 - Bottom engraving workflow in the same app: upload SVG, place it in a dedicated bottom-view preview, set engraving depth, then engrave it on the outside base in exported OBJ
 - Bottom SVG engraving now uses a separate grid-based post-process mesh for cleaner contour fidelity (less ring-constrained jaggedness)
+- New bubble-detail pattern (scatter dimples) with tuners for count, depth, and size
 
 Texture from uploaded image (best results):
 - Prefer **PNG grayscale** (8-bit) for predictable carving depth.
