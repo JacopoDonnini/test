@@ -106,7 +106,7 @@ New border controls:
 - `bottom_border` (mm): keeps the bottom section straight as a cylinder at `base_radius`.
 - `top_border` (mm): keeps the top lip section straight as a cylinder at `lip_radius`.
 - `top_transition` (mm): smoothing band height below `top_border` to blend waves into the straight lip (set `0` for a sharp transition).
-- Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves/texture are not applied in those border zones).
+- Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves, texture, bubbles, and ribs are not applied in those border zones).
 
 
 Preset import/export:

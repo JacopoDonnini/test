@@ -540,13 +540,16 @@ function buildMesh(p, nTheta, nZ) {
     const z01 = iz / nZ;
     const z = z01 * p.height;
     const ringR = [];
+    const inStraightZone = isInStraightZone(z01, p);
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
       let r = radius(th, z01, p);
-      r = applyBubbleField(r, th, z01, p, bubbleSet);
-      r = applyVerticalRibs(r, th, z01, p);
 
-      if (!isInStraightZone(z01, p)) {
+      // Straight top/bottom border bands must override all decorative modifiers.
+      if (!inStraightZone) {
+        r = applyBubbleField(r, th, z01, p, bubbleSet);
+        r = applyVerticalRibs(r, th, z01, p);
+
         const u = it / nTheta;
         const tex = sampleTexture(u, z01); // 0..1
         const carved = (0.5 - tex) * 2.0; // brighter -> inward
