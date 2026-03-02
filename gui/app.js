@@ -87,7 +87,7 @@ let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
 let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
 let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, bottom_svg_depth: 1.2 };
-let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement }
+let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement, preview: HTMLCanvasElement }
 
 let params = { ...presets.spiral_ribbed };
 let meshPreview = null;
@@ -429,13 +429,13 @@ function drawBottomViewer() {
   bottomCtx.fillStyle = '#1a1d22';
   bottomCtx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
 
-  if (bottomSvgMask && bottomSvgMask.image) {
+  if (bottomSvgMask && (bottomSvgMask.preview || bottomSvgMask.image)) {
     const size = 2 * r * bottomSvgState.bottom_svg_scale;
     const dx = cx + bottomSvgState.bottom_svg_tx * r - size * 0.5;
     const dy = cy - bottomSvgState.bottom_svg_ty * r - size * 0.5;
-    bottomCtx.globalAlpha = 0.85;
+    bottomCtx.globalAlpha = 0.90;
     bottomCtx.imageSmoothingEnabled = true;
-    bottomCtx.drawImage(bottomSvgMask.image, dx, dy, size, size);
+    bottomCtx.drawImage(bottomSvgMask.preview || bottomSvgMask.image, dx, dy, size, size);
     bottomCtx.globalAlpha = 1.0;
   }
 
@@ -482,7 +482,27 @@ function loadBottomSvgFile(file) {
             mask[i] = a * (1 - lum);
           }
           const smoothMask = blurFloatMap(mask, c.width, c.height, 1);
-          bottomSvgMask = { w: c.width, h: c.height, data: smoothMask, image: img };
+
+          const preview = document.createElement('canvas');
+          preview.width = 1024;
+          preview.height = 1024;
+          const pctx = preview.getContext('2d');
+          const pimg = pctx.createImageData(preview.width, preview.height);
+          for (let y = 0; y < preview.height; y++) {
+            const sy = Math.floor((y / Math.max(1, preview.height - 1)) * (c.height - 1));
+            for (let x = 0; x < preview.width; x++) {
+              const sx = Math.floor((x / Math.max(1, preview.width - 1)) * (c.width - 1));
+              const m = smoothMask[sy * c.width + sx];
+              const v = Math.round(255 * (1 - m));
+              const i = (y * preview.width + x) * 4;
+              pimg.data[i] = v;
+              pimg.data[i + 1] = v;
+              pimg.data[i + 2] = v;
+              pimg.data[i + 3] = Math.round(255 * m);
+            }
+          }
+          pctx.putImageData(pimg, 0, 0);
+          bottomSvgMask = { w: c.width, h: c.height, data: smoothMask, image: img, preview };
           drawBottomViewer();
           rebuildMeshes();
           resolve()
@@ -529,9 +549,8 @@ function effectiveResolution(maxTriangles) {
   let nZ = Math.max(8, Math.floor(meshResolution.n_z));
   const tri = () => {
     const side = 2 * nTheta * nZ;
-    const grid = bottomGridResolution(nTheta);
-    const insideFactor = Math.PI / 4; // circle area / square area
-    const bottom = Math.floor(2 * grid * grid * insideFactor);
+    const radialSteps = Math.max(10, Math.floor(nTheta / 2));
+    const bottom = 2 * nTheta * radialSteps;
     return side + bottom;
   };
 
@@ -548,10 +567,6 @@ function effectiveResolution(maxTriangles) {
   }
 
   return { nTheta, nZ };
-}
-
-function bottomGridResolution(nTheta) {
-  return Math.max(40, Math.min(420, Math.floor(nTheta * 1.25)));
 }
 
 function buildMesh(p, nTheta, nZ) {
@@ -611,48 +626,51 @@ function buildMesh(p, nTheta, nZ) {
     }
   }
 
-  // Build a separate bottom-cap post-process mesh on a cartesian grid so SVG contours
-  // are not constrained by concentric vase rings.
-  const baseRing = [];
-  for (let it = 0; it < nTheta; it++) baseRing.push(verts[idx(it, 0)]);
-  const maxBaseRadius = Math.max(...baseRing.map(v => Math.hypot(v[0], v[1])));
-
-  const gridN = bottomGridResolution(nTheta);
-  const stride = gridN + 1;
-  const nodeIndex = new Int32Array(stride * stride);
-  nodeIndex.fill(-1);
+  // Build a watertight engraved bottom cap using concentric rings stitched to
+  // the existing base ring. This avoids disconnected/non-manifold bottom meshes.
+  const baseRingIdx = [];
+  for (let it = 0; it < nTheta; it++) baseRingIdx.push(idx(it, 0));
+  const maxBaseRadius = Math.max(...baseRingIdx.map(i => Math.hypot(verts[i][0], verts[i][1])));
 
   const depth = Math.max(0, bottomSvgState.bottom_svg_depth);
+  const radialSteps = Math.max(10, Math.floor(nTheta / 2));
+  const ringIndex = Array.from({ length: radialSteps + 1 }, () => new Int32Array(nTheta));
 
-  for (let gy = 0; gy <= gridN; gy++) {
-    const ny = gy / gridN;
-    const y = (ny * 2 - 1) * maxBaseRadius;
-    for (let gx = 0; gx <= gridN; gx++) {
-      const nx = gx / gridN;
-      const x = (nx * 2 - 1) * maxBaseRadius;
-      if ((x * x + y * y) > (maxBaseRadius * maxBaseRadius)) continue;
+  for (let it = 0; it < nTheta; it++) ringIndex[radialSteps][it] = baseRingIdx[it];
+
+  for (let ir = 0; ir < radialSteps; ir++) {
+    const rr = maxBaseRadius * (ir / radialSteps);
+    for (let it = 0; it < nTheta; it++) {
+      const th = 2 * Math.PI * it / nTheta;
+      const x = rr * Math.cos(th);
+      const y = rr * Math.sin(th);
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
       const zBottom = depth * carve;
-      const vi = verts.length;
+      ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
-      nodeIndex[gy * stride + gx] = vi;
     }
   }
 
-  const triIfValid = (a, b, c) => {
-    if (a < 0 || b < 0 || c < 0) return;
-    faces.push([a, b, c]);
-  };
+  const centerMask = sampleBottomSvgMask(0, 0, maxBaseRadius);
+  const centerZ = depth * Math.max(0, Math.min(1, centerMask));
+  const centerIdx = verts.length;
+  verts.push([0, 0, centerZ]);
 
-  for (let gy = 0; gy < gridN; gy++) {
-    for (let gx = 0; gx < gridN; gx++) {
-      const a = nodeIndex[gy * stride + gx];
-      const b = nodeIndex[gy * stride + (gx + 1)];
-      const c = nodeIndex[(gy + 1) * stride + gx];
-      const d = nodeIndex[(gy + 1) * stride + (gx + 1)];
-      triIfValid(a, c, b);
-      triIfValid(b, c, d);
+  for (let it = 0; it < nTheta; it++) {
+    const a = centerIdx;
+    const b = ringIndex[0][it];
+    const c = ringIndex[0][(it + 1) % nTheta];
+    faces.push([a, c, b]);
+  }
+
+  for (let ir = 0; ir < radialSteps; ir++) {
+    for (let it = 0; it < nTheta; it++) {
+      const a = ringIndex[ir][it];
+      const b = ringIndex[ir][(it + 1) % nTheta];
+      const c = ringIndex[ir + 1][it];
+      const d = ringIndex[ir + 1][(it + 1) % nTheta];
+      faces.push([a, d, c], [a, b, d]);
     }
   }
 
