@@ -649,7 +649,7 @@ function buildMesh(p, nTheta, nZ) {
       const y = rr * Math.sin(th);
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
-      const zBottom = -depth * carve;
+      const zBottom = depth * carve;
       ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
     }
