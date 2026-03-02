@@ -1,10 +1,10 @@
 const presets = {
-  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
-  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
-  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
-  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
-  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
-  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10 },
+  spiral_ribbed: { height:180, base_radius:22, neck_radius:16, lip_radius:20, belly_amp:11, belly_center:0.46, belly_width:0.24, waves:14, wave_amp:0.16, wave_z_falloff:0.25, twist:12, twist_curve:0, skew_wave:0.10, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
+  soft_organic:  { height:180, base_radius:22, neck_radius:18, lip_radius:19, belly_amp:7,  belly_center:0.46, belly_width:0.24, waves:4,  wave_amp:0.09, wave_z_falloff:0.25, twist:3.5, twist_curve:0, skew_wave:0.55, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
+  fluted_classic:{ height:180, base_radius:20, neck_radius:16, lip_radius:20, belly_amp:10, belly_center:0.46, belly_width:0.24, waves:18, wave_amp:0.11, wave_z_falloff:0.25, twist:1.5, twist_curve:0, skew_wave:0.00, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
+  tall_twist:    { height:240, base_radius:22, neck_radius:14, lip_radius:16, belly_amp:16, belly_center:0.30, belly_width:0.24, waves:22, wave_amp:0.08, wave_z_falloff:0.25, twist:9, twist_curve:0, skew_wave:0.0,  seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
+  petal_lip:     { height:180, base_radius:22, neck_radius:16, lip_radius:30, belly_amp:9,  belly_center:0.46, belly_width:0.24, waves:12, wave_amp:0.15, wave_z_falloff:0.25, twist:6, twist_curve:0, skew_wave:0.25, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
+  minimal_wavy:  { height:180, base_radius:18, neck_radius:17, lip_radius:18, belly_amp:5.5, belly_center:0.46, belly_width:0.24, waves:3,  wave_amp:0.07, wave_z_falloff:0.25, twist:2, twist_curve:0, skew_wave:0.45, seed_phase:0, top_border:0, bottom_border:0, top_transition:2.0, wave_roundness:0.0, bubble_count:0, bubble_depth:0.0, bubble_size:0.10, rib_count:0, rib_depth:0.0, rib_width:0.08, rib_start:0.10, rib_end:0.88 },
 };
 
 const resolutionSliders = [
@@ -24,6 +24,7 @@ const sliders = [
   ['waves', 0, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
   ['bubble_count', 0, 120, 1], ['bubble_depth', 0.0, 1.8, 0.01], ['bubble_size', 0.01, 0.60, 0.01],
+  ['rib_count', 0, 120, 1], ['rib_depth', 0.0, 0.8, 0.01], ['rib_width', 0.01, 0.22, 0.005], ['rib_start', 0.0, 0.95, 0.01], ['rib_end', 0.05, 1.0, 0.01],
 ];
 
 const textureModes = ['none', 'honeycomb', 'bark', 'paper', 'upload'];
@@ -58,6 +59,11 @@ const FIELD_INFO = {
   bubble_count: { label: 'Bubble Count', unit: '', group: 'Details', description: 'Number of bubble-like dimples scattered on the vase body.' },
   bubble_depth: { label: 'Bubble Depth', unit: '', group: 'Details', description: 'Strength of bubble protrusion/dimple effect (now extended range for more aggressive results).'},
   bubble_size: { label: 'Bubble Size', unit: '', group: 'Details', description: 'Approximate bubble footprint size (extended range for larger/layered bubbles).' },
+  rib_count: { label: 'Vertical Rib Count', unit: '', group: 'Details', description: 'Number of straight vertical fins around the vase.' },
+  rib_depth: { label: 'Vertical Rib Depth', unit: '', group: 'Details', description: 'How far each rib protrudes from the surface.' },
+  rib_width: { label: 'Vertical Rib Width', unit: '', group: 'Details', description: 'Rib thickness: lower values make sharper/thinner fins.' },
+  rib_start: { label: 'Vertical Rib Start', unit: '', group: 'Details', description: 'Normalized height where ribs begin (0 bottom → 1 top).' },
+  rib_end: { label: 'Vertical Rib End', unit: '', group: 'Details', description: 'Normalized height where ribs end.' },
 
   texture_mode: { label: 'Texture Type', group: 'Texture', description: 'Choose a built-in procedural texture or upload your own image.' },
   depth: { label: 'Texture Depth', unit: '', group: 'Texture', description: 'How strongly texture carves in/out on the surface.' },
@@ -185,6 +191,31 @@ function applyBubbleField(r, th, z01, p, bubbleSet) {
 
   const bubble = Math.max(0, Math.min(1.5, field));
   return Math.max(1e-3, r * (1 + depth * 0.55 * bubble));
+}
+
+function applyVerticalRibs(r, th, z01, p) {
+  const count = Math.max(0, Math.floor(Number(p.rib_count || 0)));
+  const depth = Math.max(0, Number(p.rib_depth || 0));
+  if (count <= 0 || depth <= 1e-6) return r;
+
+  const zStart = Math.max(0, Math.min(1, Number(p.rib_start ?? 0.1)));
+  const zEnd = Math.max(zStart + 1e-6, Math.min(1, Number(p.rib_end ?? 0.88)));
+  if (z01 < zStart || z01 > zEnd) return r;
+
+  const edgeBand = Math.max(0.01, 0.1 * (zEnd - zStart));
+  const enter = smoothstep((z01 - zStart) / edgeBand);
+  const leave = smoothstep((zEnd - z01) / edgeBand);
+  const env = Math.max(0, Math.min(1, enter * leave));
+
+  const width = Math.max(0.005, Number(p.rib_width || 0.08));
+  const u = th / (2 * Math.PI);
+  const cell = fract(u * count);
+  const d = Math.abs(cell - 0.5);
+  const sigma = Math.max(0.01, width * 0.5);
+  const peak = Math.exp(-(d * d) / Math.max(1e-6, sigma * sigma));
+
+  const rib = Math.max(0, Math.min(1.0, peak));
+  return Math.max(1e-3, r * (1 + depth * 0.22 * env * rib));
 }
 
 function radius(th, z, p) {
@@ -517,6 +548,7 @@ function buildMesh(p, nTheta, nZ) {
       const th = 2 * Math.PI * it / nTheta;
       let r = radius(th, z01, p);
       r = applyBubbleField(r, th, z01, p, bubbleSet);
+      r = applyVerticalRibs(r, th, z01, p);
 
       if (!isInStraightZone(z01, p)) {
         const u = it / nTheta;
@@ -720,7 +752,7 @@ function rebuildMeshes() {
 function formatFieldValue(name, value) {
   const info = FIELD_INFO[name] || {};
   const numeric = Number(value);
-  if (name === 'waves' || name === 'n_theta' || name === 'n_z' || name === 'bubble_count') return String(Math.round(numeric));
+  if (name === 'waves' || name === 'n_theta' || name === 'n_z' || name === 'bubble_count' || name === 'rib_count') return String(Math.round(numeric));
   if (!Number.isFinite(numeric)) return String(value);
   const fixed = Math.abs(numeric) >= 100 ? numeric.toFixed(1) : numeric.toFixed(2);
   return info.unit ? `${fixed} ${info.unit}` : fixed;
@@ -990,7 +1022,7 @@ function reloadSliders() {
   }));
 
   sliders.forEach(([name, min, max, step]) => addControl(name, min, max, step, params, (v) => {
-    params[name] = (name === 'waves' || name === 'bubble_count') ? Number.parseInt(v, 10) : Number(v);
+    params[name] = (name === 'waves' || name === 'bubble_count' || name === 'rib_count') ? Number.parseInt(v, 10) : Number(v);
     rebuildMeshes();
   }));
 
