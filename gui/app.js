@@ -23,7 +23,7 @@ const sliders = [
   ['wave_roundness', 0.0, 1.0, 0.01],
   ['waves', 0, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
-  ['bubble_count', 0, 28, 1], ['bubble_depth', 0.0, 0.35, 0.005], ['bubble_size', 0.03, 0.32, 0.005],
+  ['bubble_count', 0, 120, 1], ['bubble_depth', 0.0, 1.8, 0.01], ['bubble_size', 0.01, 0.60, 0.01],
 ];
 
 const textureModes = ['none', 'honeycomb', 'bark', 'paper', 'upload'];
@@ -56,8 +56,8 @@ const FIELD_INFO = {
   skew_wave: { label: 'Wave Asymmetry', unit: '', group: 'Flow', description: 'Adds asymmetry for a more organic look.' },
   seed_phase: { label: 'Wave Phase', unit: 'rad', group: 'Flow', description: 'Initial rotational phase of waves.' },
   bubble_count: { label: 'Bubble Count', unit: '', group: 'Details', description: 'Number of bubble-like dimples scattered on the vase body.' },
-  bubble_depth: { label: 'Bubble Depth', unit: '', group: 'Details', description: 'Strength of bubble dimples (higher values carve deeper).'},
-  bubble_size: { label: 'Bubble Size', unit: '', group: 'Details', description: 'Approximate bubble footprint size.' },
+  bubble_depth: { label: 'Bubble Depth', unit: '', group: 'Details', description: 'Strength of bubble protrusion/dimple effect (now extended range for more aggressive results).'},
+  bubble_size: { label: 'Bubble Size', unit: '', group: 'Details', description: 'Approximate bubble footprint size (extended range for larger/layered bubbles).' },
 
   texture_mode: { label: 'Texture Type', group: 'Texture', description: 'Choose a built-in procedural texture or upload your own image.' },
   depth: { label: 'Texture Depth', unit: '', group: 'Texture', description: 'How strongly texture carves in/out on the surface.' },
