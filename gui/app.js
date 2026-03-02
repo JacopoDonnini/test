@@ -709,9 +709,24 @@ function addControl(name, min, max, step, stateObj, onChange) {
 
   const row = document.createElement('div');
   row.className = 'row';
-  const lbl = document.createElement('span'); lbl.textContent = info.label || name;
-  const value = document.createElement('span');
-  row.append(lbl, value);
+  const lbl = document.createElement('span');
+  lbl.textContent = info.label || name;
+
+  const valueWrap = document.createElement('div');
+  valueWrap.className = 'value-wrap';
+  const valueInput = document.createElement('input');
+  valueInput.type = 'number';
+  valueInput.className = 'value-input';
+  valueInput.min = String(min);
+  valueInput.max = String(max);
+  valueInput.step = String(step);
+  valueInput.value = String(stateObj[name]);
+  const valueUnit = document.createElement('span');
+  valueUnit.className = 'value-unit';
+  valueUnit.textContent = info.unit || '';
+  valueWrap.append(valueInput, valueUnit);
+
+  row.append(lbl, valueWrap);
 
   const input = document.createElement('input');
   input.type = 'range';
@@ -719,16 +734,35 @@ function addControl(name, min, max, step, stateObj, onChange) {
   input.max = String(max);
   input.step = String(step);
   input.value = String(stateObj[name]);
-  value.textContent = formatFieldValue(name, stateObj[name]);
 
   const activateHelp = () => showHelpFor(name);
   input.addEventListener('focus', activateHelp);
   input.addEventListener('mouseenter', activateHelp);
   lbl.addEventListener('mouseenter', activateHelp);
+  valueInput.addEventListener('focus', activateHelp);
+
+  const clampToRange = (v) => Math.max(min, Math.min(max, v));
+
+  const applyValue = (raw, fromTextField = false) => {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = clampToRange(parsed);
+    onChange(String(clamped));
+    input.value = String(stateObj[name]);
+    valueInput.value = String(stateObj[name]);
+    if (fromTextField) scheduleDraw(dragging);
+  };
 
   input.addEventListener('input', () => {
-    onChange(input.value);
-    value.textContent = formatFieldValue(name, stateObj[name]);
+    applyValue(input.value, false);
+  });
+
+  valueInput.addEventListener('input', () => {
+    applyValue(valueInput.value, true);
+  });
+
+  valueInput.addEventListener('blur', () => {
+    valueInput.value = String(stateObj[name]);
   });
 
   wrap.append(row, input);
