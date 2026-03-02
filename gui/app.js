@@ -529,9 +529,8 @@ function effectiveResolution(maxTriangles) {
   let nZ = Math.max(8, Math.floor(meshResolution.n_z));
   const tri = () => {
     const side = 2 * nTheta * nZ;
-    const grid = bottomGridResolution(nTheta);
-    const insideFactor = Math.PI / 4; // circle area / square area
-    const bottom = Math.floor(2 * grid * grid * insideFactor);
+    const radialSteps = Math.max(10, Math.floor(nTheta / 2));
+    const bottom = 2 * nTheta * radialSteps;
     return side + bottom;
   };
 
@@ -550,9 +549,6 @@ function effectiveResolution(maxTriangles) {
   return { nTheta, nZ };
 }
 
-function bottomGridResolution(nTheta) {
-  return Math.max(40, Math.min(420, Math.floor(nTheta * 1.25)));
-}
 
 function buildMesh(p, nTheta, nZ) {
   const verts = [];
@@ -611,48 +607,52 @@ function buildMesh(p, nTheta, nZ) {
     }
   }
 
-  // Build a separate bottom-cap post-process mesh on a cartesian grid so SVG contours
-  // are not constrained by concentric vase rings.
-  const baseRing = [];
-  for (let it = 0; it < nTheta; it++) baseRing.push(verts[idx(it, 0)]);
-  const maxBaseRadius = Math.max(...baseRing.map(v => Math.hypot(v[0], v[1])));
-
-  const gridN = bottomGridResolution(nTheta);
-  const stride = gridN + 1;
-  const nodeIndex = new Int32Array(stride * stride);
-  nodeIndex.fill(-1);
+  // Build a stitched engraved bottom cap using concentric rings tied to the
+  // existing base ring to keep one connected, slicer-friendly shell.
+  const baseRingIdx = [];
+  for (let it = 0; it < nTheta; it++) baseRingIdx.push(idx(it, 0));
+  const maxBaseRadius = Math.max(...baseRingIdx.map(i => Math.hypot(verts[i][0], verts[i][1])));
 
   const depth = Math.max(0, bottomSvgState.bottom_svg_depth);
+  const radialSteps = Math.max(10, Math.floor(nTheta / 2));
+  const ringIndex = Array.from({ length: radialSteps + 1 }, () => new Int32Array(nTheta));
 
-  for (let gy = 0; gy <= gridN; gy++) {
-    const ny = gy / gridN;
-    const y = (ny * 2 - 1) * maxBaseRadius;
-    for (let gx = 0; gx <= gridN; gx++) {
-      const nx = gx / gridN;
-      const x = (nx * 2 - 1) * maxBaseRadius;
-      if ((x * x + y * y) > (maxBaseRadius * maxBaseRadius)) continue;
+  // Outer ring reuses vase base vertices for a watertight stitch.
+  for (let it = 0; it < nTheta; it++) ringIndex[radialSteps][it] = baseRingIdx[it];
+
+  for (let ir = 0; ir < radialSteps; ir++) {
+    const rr = maxBaseRadius * (ir / radialSteps);
+    for (let it = 0; it < nTheta; it++) {
+      const th = 2 * Math.PI * it / nTheta;
+      const x = rr * Math.cos(th);
+      const y = rr * Math.sin(th);
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
       const zBottom = depth * carve;
-      const vi = verts.length;
+      ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
-      nodeIndex[gy * stride + gx] = vi;
     }
   }
 
-  const triIfValid = (a, b, c) => {
-    if (a < 0 || b < 0 || c < 0) return;
-    faces.push([a, b, c]);
-  };
+  const centerMask = sampleBottomSvgMask(0, 0, maxBaseRadius);
+  const centerZ = depth * Math.max(0, Math.min(1, centerMask));
+  const centerIdx = verts.length;
+  verts.push([0, 0, centerZ]);
 
-  for (let gy = 0; gy < gridN; gy++) {
-    for (let gx = 0; gx < gridN; gx++) {
-      const a = nodeIndex[gy * stride + gx];
-      const b = nodeIndex[gy * stride + (gx + 1)];
-      const c = nodeIndex[(gy + 1) * stride + gx];
-      const d = nodeIndex[(gy + 1) * stride + (gx + 1)];
-      triIfValid(a, c, b);
-      triIfValid(b, c, d);
+  for (let it = 0; it < nTheta; it++) {
+    const a = centerIdx;
+    const b = ringIndex[0][it];
+    const c = ringIndex[0][(it + 1) % nTheta];
+    faces.push([a, c, b]);
+  }
+
+  for (let ir = 0; ir < radialSteps; ir++) {
+    for (let it = 0; it < nTheta; it++) {
+      const a = ringIndex[ir][it];
+      const b = ringIndex[ir][(it + 1) % nTheta];
+      const c = ringIndex[ir + 1][it];
+      const d = ringIndex[ir + 1][(it + 1) % nTheta];
+      faces.push([a, d, c], [a, b, d]);
     }
   }
 
