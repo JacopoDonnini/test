@@ -433,10 +433,13 @@ function drawBottomViewer() {
     const size = 2 * r * bottomSvgState.bottom_svg_scale;
     const dx = cx + bottomSvgState.bottom_svg_tx * r - size * 0.5;
     const dy = cy - bottomSvgState.bottom_svg_ty * r - size * 0.5;
-    bottomCtx.globalAlpha = 0.90;
     bottomCtx.imageSmoothingEnabled = true;
-    bottomCtx.drawImage(bottomSvgMask.preview || bottomSvgMask.image, dx, dy, size, size);
     bottomCtx.globalAlpha = 1.0;
+    bottomCtx.drawImage(bottomSvgMask.preview || bottomSvgMask.image, dx, dy, size, size);
+    bottomCtx.globalCompositeOperation = 'source-atop';
+    bottomCtx.fillStyle = 'rgba(128, 166, 255, 0.55)';
+    bottomCtx.fillRect(dx, dy, size, size);
+    bottomCtx.globalCompositeOperation = 'source-over';
   }
 
   bottomCtx.restore();
@@ -646,7 +649,7 @@ function buildMesh(p, nTheta, nZ) {
       const y = rr * Math.sin(th);
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
-      const zBottom = depth * carve;
+      const zBottom = -depth * carve;
       ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
     }
