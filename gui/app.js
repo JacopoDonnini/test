@@ -430,16 +430,16 @@ function effectiveResolution(maxTriangles) {
   let nZ = Math.max(8, Math.floor(meshResolution.n_z));
   const tri = () => {
     const side = 2 * nTheta * nZ;
-    const nR = Math.max(10, Math.floor(Math.sqrt(nTheta) * 3));
-    const bottom = nTheta + 2 * nTheta * Math.max(0, nR - 1);
+    const grid = bottomGridResolution(nTheta);
+    const insideFactor = Math.PI / 4; // circle area / square area
+    const bottom = Math.floor(2 * grid * grid * insideFactor);
     return side + bottom;
   };
 
   if (tri() <= maxTriangles) return { nTheta, nZ };
 
   const ratio = nTheta / Math.max(1e-6, nZ);
-  const approxCoeff = 2 + (6 / Math.max(1, Math.sqrt(nTheta))); // include bottom cap cost roughly
-  const scaledZ = Math.sqrt(maxTriangles / Math.max(1e-6, approxCoeff * ratio));
+  const scaledZ = Math.sqrt(maxTriangles / Math.max(1e-6, 3.8 * ratio));
   nZ = Math.max(16, Math.floor(scaledZ));
   nTheta = Math.max(16, Math.floor(nZ * ratio));
 
@@ -449,6 +449,10 @@ function effectiveResolution(maxTriangles) {
   }
 
   return { nTheta, nZ };
+}
+
+function bottomGridResolution(nTheta) {
+  return Math.max(40, Math.min(420, Math.floor(nTheta * 1.25)));
 }
 
 function buildMesh(p, nTheta, nZ) {
@@ -500,48 +504,48 @@ function buildMesh(p, nTheta, nZ) {
     }
   }
 
-  // Build a tessellated bottom cap so SVG engraving can be carved on the outside base.
-  const bottomStart = verts.length;
-  const nR = Math.max(10, Math.floor(Math.sqrt(nTheta) * 3));
+  // Build a separate bottom-cap post-process mesh on a cartesian grid so SVG contours
+  // are not constrained by concentric vase rings.
+  const baseRing = [];
+  for (let it = 0; it < nTheta; it++) baseRing.push(verts[idx(it, 0)]);
+  const maxBaseRadius = Math.max(...baseRing.map(v => Math.hypot(v[0], v[1])));
 
-  const ringOffsets = [];
-  for (let ir = 0; ir <= nR; ir++) {
-    const t = ir / nR;
-    if (ir === 0) {
-      ringOffsets.push(verts.length - bottomStart);
-      verts.push([0, 0, 0]);
-      continue;
-    }
-    ringOffsets.push(verts.length - bottomStart);
-    for (let it = 0; it < nTheta; it++) {
-      const th = 2 * Math.PI * it / nTheta;
-      const boundary = verts[idx(it, 0)];
-      const x = boundary[0] * t;
-      const y = boundary[1] * t;
-      const rRef = Math.max(1e-6, Math.hypot(boundary[0], boundary[1]));
-      const mask = sampleBottomSvgMask(x, y, rRef);
+  const gridN = bottomGridResolution(nTheta);
+  const stride = gridN + 1;
+  const nodeIndex = new Int32Array(stride * stride);
+  nodeIndex.fill(-1);
+
+  const depth = Math.max(0, bottomSvgState.bottom_svg_depth);
+
+  for (let gy = 0; gy <= gridN; gy++) {
+    const ny = gy / gridN;
+    const y = (ny * 2 - 1) * maxBaseRadius;
+    for (let gx = 0; gx <= gridN; gx++) {
+      const nx = gx / gridN;
+      const x = (nx * 2 - 1) * maxBaseRadius;
+      if ((x * x + y * y) > (maxBaseRadius * maxBaseRadius)) continue;
+      const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carve = Math.max(0, Math.min(1, mask));
-      const zBottom = Math.max(0, bottomSvgState.bottom_svg_depth) * carve;
+      const zBottom = depth * carve;
+      const vi = verts.length;
       verts.push([x, y, zBottom]);
+      nodeIndex[gy * stride + gx] = vi;
     }
   }
 
-  for (let it = 0; it < nTheta; it++) {
-    const a = bottomStart;
-    const b = bottomStart + ringOffsets[1] + it;
-    const c = bottomStart + ringOffsets[1] + ((it + 1) % nTheta);
+  const triIfValid = (a, b, c) => {
+    if (a < 0 || b < 0 || c < 0) return;
     faces.push([a, b, c]);
-  }
+  };
 
-  for (let ir = 1; ir < nR; ir++) {
-    const baseA = bottomStart + ringOffsets[ir];
-    const baseB = bottomStart + ringOffsets[ir + 1];
-    for (let it = 0; it < nTheta; it++) {
-      const a = baseA + it;
-      const b = baseA + ((it + 1) % nTheta);
-      const c = baseB + it;
-      const d = baseB + ((it + 1) % nTheta);
-      faces.push([a, c, b], [b, c, d]);
+  for (let gy = 0; gy < gridN; gy++) {
+    for (let gx = 0; gx < gridN; gx++) {
+      const a = nodeIndex[gy * stride + gx];
+      const b = nodeIndex[gy * stride + (gx + 1)];
+      const c = nodeIndex[(gy + 1) * stride + gx];
+      const d = nodeIndex[(gy + 1) * stride + (gx + 1)];
+      triIfValid(a, c, b);
+      triIfValid(b, c, d);
     }
   }
 
