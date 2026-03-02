@@ -403,7 +403,17 @@ function drawBottomViewer() {
 
   const cx = w * 0.5;
   const cy = h * 0.5;
-  const r = Math.min(w, h) * 0.42;
+  const baseVisualRadius = Math.min(w, h) * 0.42;
+
+  // Match bottom-view scale to the *effective* base width after bottom-band straightening.
+  const effectiveBaseRadius = bottomBorderRadius(params);
+  let profileRefRadius = Math.max(1e-3, effectiveBaseRadius, Number(params.lip_radius || 0), Number(params.neck_radius || 0));
+  for (let i = 0; i <= 48; i++) {
+    const z = i / 48;
+    profileRefRadius = Math.max(profileRefRadius, baseProfile(z, params));
+  }
+  const scale = Math.max(0.45, Math.min(1.0, effectiveBaseRadius / Math.max(1e-3, profileRefRadius)));
+  const r = baseVisualRadius * scale;
 
   bottomCtx.strokeStyle = '#565a60';
   bottomCtx.lineWidth = 1.5;
@@ -433,7 +443,7 @@ function drawBottomViewer() {
 
   bottomCtx.fillStyle = '#bfc6d0';
   bottomCtx.font = '12px Inter, system-ui, sans-serif';
-  bottomCtx.fillText('Outside bottom view', 12, h - 12);
+  bottomCtx.fillText(`Outside bottom view (effective radius: ${effectiveBaseRadius.toFixed(1)} mm)`, 12, h - 12);
 }
 
 function loadBottomSvgFile(file) {
