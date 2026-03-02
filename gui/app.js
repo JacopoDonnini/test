@@ -127,6 +127,18 @@ function topTransitionMm(p) {
   return transition;
 }
 
+function topBandBlendEnvelope(z, p) {
+  const zMm = z * p.height;
+  const topBorder = borderThicknessMm(p.top_border, p.height);
+  if (topBorder <= 0) return 1;
+  const distToTop = p.height - zMm;
+  if (distToTop <= topBorder) return 0;
+
+  const transition = topTransitionMm(p);
+  if (transition <= 1e-6 || distToTop > topBorder + transition) return 1;
+  return smoothstep((distToTop - topBorder) / transition);
+}
+
 function bottomBorderRadius(p) {
   const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
   if (bottomBorder <= 0) return Math.max(1e-3, p.base_radius);
@@ -171,10 +183,11 @@ function buildBubbleSet(p) {
   return set;
 }
 
-function applyBubbleField(r, th, z01, p, bubbleSet) {
+function applyBubbleField(r, th, z01, p, bubbleSet, envelope = 1) {
   if (!bubbleSet || bubbleSet.length === 0) return r;
   const depth = Math.max(0, Number(p.bubble_depth || 0));
-  if (depth <= 1e-6) return r;
+  const env = Math.max(0, Math.min(1, Number(envelope || 0)));
+  if (depth <= 1e-6 || env <= 1e-6) return r;
   const size = Math.max(0.02, Number(p.bubble_size || 0.1));
 
   const u = th / (2 * Math.PI);
@@ -189,13 +202,14 @@ function applyBubbleField(r, th, z01, p, bubbleSet) {
   }
 
   const bubble = Math.max(0, Math.min(1.5, field));
-  return Math.max(1e-3, r * (1 + depth * 0.55 * bubble));
+  return Math.max(1e-3, r * (1 + depth * env * 0.55 * bubble));
 }
 
-function applyVerticalRibs(r, th, _z01, p) {
+function applyVerticalRibs(r, th, _z01, p, envelope = 1) {
   const count = Math.max(0, Math.floor(Number(p.rib_count || 0)));
   const depth = Math.max(0, Number(p.rib_depth || 0));
-  if (count <= 0 || depth <= 1e-6) return r;
+  const env = Math.max(0, Math.min(1, Number(envelope || 0)));
+  if (count <= 0 || depth <= 1e-6 || env <= 1e-6) return r;
 
   const thickness = Math.max(0.02, Math.min(0.95, Number(p.rib_thickness || 0.22)));
   const edgeRoundness = Math.max(0, Math.min(1, Number(p.rib_roundness || 0.30)));
@@ -211,7 +225,7 @@ function applyVerticalRibs(r, th, _z01, p) {
   const roundedOuter = 1 - smoothstep((d - halfPlateau) / outerEdge);
   const rib = edgeRoundness <= 1e-6 ? hardRect : Math.max(0, Math.min(1, roundedOuter));
 
-  return Math.max(1e-3, r * (1 + depth * 0.26 * rib));
+  return Math.max(1e-3, r * (1 + depth * env * 0.26 * rib));
 }
 
 function radius(th, z, p) {
@@ -547,8 +561,9 @@ function buildMesh(p, nTheta, nZ) {
 
       // Straight top/bottom border bands must override all decorative modifiers.
       if (!inStraightZone) {
-        r = applyBubbleField(r, th, z01, p, bubbleSet);
-        r = applyVerticalRibs(r, th, z01, p);
+        const detailEnvelope = topBandBlendEnvelope(z01, p);
+        r = applyBubbleField(r, th, z01, p, bubbleSet, detailEnvelope);
+        r = applyVerticalRibs(r, th, z01, p, detailEnvelope);
 
         const u = it / nTheta;
         const tex = sampleTexture(u, z01); // 0..1
