@@ -656,7 +656,9 @@ function buildMesh(p, nTheta, nZ) {
   // Outer ring reuses vase base vertices for a watertight stitch.
   for (let it = 0; it < nTheta; it++) ringIndex[radialSteps][it] = baseRingIdx[it];
 
-  for (let ir = 0; ir < radialSteps; ir++) {
+  // Fill inner rings starting at ir=1. ir=0 would collapse all vertices to the
+  // center point and create degenerate/non-manifold triangles.
+  for (let ir = 1; ir < radialSteps; ir++) {
     const rr = maxBaseRadius * (ir / radialSteps);
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
@@ -679,12 +681,12 @@ function buildMesh(p, nTheta, nZ) {
 
   for (let it = 0; it < nTheta; it++) {
     const a = centerIdx;
-    const b = ringIndex[0][it];
-    const c = ringIndex[0][(it + 1) % nTheta];
+    const b = ringIndex[1][it];
+    const c = ringIndex[1][(it + 1) % nTheta];
     faces.push([a, c, b]);
   }
 
-  for (let ir = 0; ir < radialSteps; ir++) {
+  for (let ir = 1; ir < radialSteps; ir++) {
     for (let it = 0; it < nTheta; it++) {
       const a = ringIndex[ir][it];
       const b = ringIndex[ir][(it + 1) % nTheta];
