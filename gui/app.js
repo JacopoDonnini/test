@@ -673,7 +673,7 @@ function buildMesh(p, nTheta, nZ) {
       const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
       const carveRaw = Math.max(0, Math.min(1, mask));
       const carve = carveRaw >= 0.5 ? 1 : 0;
-      const zBottom = -depth * carve;
+      const zBottom = depth * carve;
       ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
     }
@@ -681,7 +681,7 @@ function buildMesh(p, nTheta, nZ) {
 
   const centerMask = sampleBottomSvgMask(0, 0, maxBaseRadius);
   const centerCarve = Math.max(0, Math.min(1, centerMask)) >= 0.5 ? 1 : 0;
-  const centerZ = -depth * centerCarve;
+  const centerZ = depth * centerCarve;
   const centerIdx = verts.length;
   verts.push([0, 0, centerZ]);
 
