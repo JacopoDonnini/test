@@ -45,7 +45,7 @@ const FIELD_INFO = {
 
   bottom_border: { label: 'Bottom Straight Band', unit: 'mm', group: 'Borders', description: 'Keeps the bottom section straight/cylindrical for this height.' },
   top_border: { label: 'Top Straight Band', unit: 'mm', group: 'Borders', description: 'Keeps the lip section straight/cylindrical for this height.' },
-  top_transition: { label: 'Top Blend Band', unit: 'mm', group: 'Borders', description: 'Smooth blend height from waves into the top straight band.' },
+  top_transition: { label: 'Border Blend Band', unit: 'mm', group: 'Borders', description: 'Smooth blend height where waves/details fade into both top and bottom straight bands.' },
 
   waves: { label: 'Wave Count', unit: '', group: 'Waves', description: 'Number of wave lobes around the circumference (set 0 to disable waves).' },
   wave_amp: { label: 'Wave Strength', unit: '', group: 'Waves', description: 'How strong the wave deformation is.' },
@@ -127,16 +127,25 @@ function topTransitionMm(p) {
   return transition;
 }
 
-function topBandBlendEnvelope(z, p) {
+function borderBandBlendEnvelope(z, p) {
   const zMm = z * p.height;
-  const topBorder = borderThicknessMm(p.top_border, p.height);
-  if (topBorder <= 0) return 1;
-  const distToTop = p.height - zMm;
-  if (distToTop <= topBorder) return 0;
-
   const transition = topTransitionMm(p);
-  if (transition <= 1e-6 || distToTop > topBorder + transition) return 1;
-  return smoothstep((distToTop - topBorder) / transition);
+  if (transition <= 1e-6) return 1;
+
+  const bottomBorder = borderThicknessMm(p.bottom_border, p.height);
+  if (bottomBorder > 0 && zMm > bottomBorder && zMm <= bottomBorder + transition) {
+    return smoothstep((zMm - bottomBorder) / transition);
+  }
+
+  const topBorder = borderThicknessMm(p.top_border, p.height);
+  if (topBorder > 0) {
+    const distToTop = p.height - zMm;
+    if (distToTop > topBorder && distToTop <= topBorder + transition) {
+      return smoothstep((distToTop - topBorder) / transition);
+    }
+  }
+
+  return 1;
 }
 
 function bottomBorderRadius(p) {
@@ -245,6 +254,16 @@ function radius(th, z, p) {
     const h = Math.cos(wavesCount * th + twistPhase(z, p));
     const sk = p.skew_wave * Math.sin((Math.floor(wavesCount / 2) + 1) * th - 0.7 * twistPhase(z, p));
     waved = Math.max(1e-3, r0 * (1 + p.wave_amp * env * (h + sk)));
+  }
+
+  // Smoothly blend from the bottom straight border into the waved profile so
+  // features don't start with a hard step above the base band.
+  if (bottomBorder > 0) {
+    const transition = topTransitionMm(p);
+    if (transition > 0 && zMm <= bottomBorder + transition) {
+      const t = smoothstep((zMm - bottomBorder) / transition);
+      return Math.max(1e-3, bottomBorderRadius(p) * (1 - t) + waved * t);
+    }
   }
 
   // Smoothly blend from waved profile into the top straight border so the upper
@@ -584,7 +603,7 @@ function buildMesh(p, nTheta, nZ) {
 
       // Straight top/bottom border bands must override all decorative modifiers.
       if (!inStraightZone) {
-        const detailEnvelope = topBandBlendEnvelope(z01, p);
+        const detailEnvelope = borderBandBlendEnvelope(z01, p);
         r = applyBubbleField(r, th, z01, p, bubbleSet, detailEnvelope);
         r = applyVerticalRibs(r, th, z01, p, detailEnvelope);
 
@@ -592,7 +611,7 @@ function buildMesh(p, nTheta, nZ) {
         const tex = sampleTexture(u, z01); // 0..1
         const carved = (0.5 - tex) * 2.0; // brighter -> inward
         const depth = Math.max(0, Math.min(0.95, textureState.depth));
-        r *= (1 + carved * depth * 0.35);
+        r *= (1 + carved * depth * 0.35 * detailEnvelope);
         r = Math.max(1e-3, r);
       }
 

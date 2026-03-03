@@ -105,7 +105,7 @@ Texture from uploaded image (best results):
 New border controls:
 - `bottom_border` (mm): keeps the bottom section straight as a cylinder at `base_radius`.
 - `top_border` (mm): keeps the top lip section straight as a cylinder at `lip_radius`.
-- `top_transition` (mm): smoothing band height below `top_border` to blend waves, ribs, and bubbles into the straight lip (set `0` for a sharp transition).
+- `top_transition` (mm): shared border blend band for both top and bottom straight zones; it blends waves, ribs, bubbles, and texture in/out near the straight bands (set `0` for sharp transitions).
 - Example: setting both to `2.0` keeps the first 2 mm from the bottom and top cylindrical (waves, texture, bubbles, and ribs are not applied in those border zones).
 
 
