@@ -70,15 +70,9 @@ const FIELD_INFO = {
   scaleV: { label: 'Texture Repeat Height', unit: '', group: 'Texture', description: 'Vertical repetition along height (V).' },
   upload_texture: { label: 'Upload Texture Image', group: 'Texture', description: 'Upload PNG/JPG/WEBP; grayscale PNG gives best consistency.' },
 
-  bottom_svg_scale: { label: 'SVG Scale', unit: 'x', group: 'Bottom Engraving', description: 'Scale of the SVG engraving on the flat outside base.' },
-  bottom_svg_tx: { label: 'SVG Offset X', unit: '', group: 'Bottom Engraving', description: 'Horizontal shift of engraving on bottom base (negative to positive).' },
-  bottom_svg_ty: { label: 'SVG Offset Y', unit: '', group: 'Bottom Engraving', description: 'Vertical shift of engraving on bottom base (negative to positive).' },
-  bottom_svg_flip_x: { label: 'Flip Logo Across X Axis', group: 'Bottom Engraving', description: 'Mirrors the bottom SVG over the X axis (vertical flip in the bottom view).' },
-  bottom_svg_upload: { label: 'Upload Bottom SVG', group: 'Bottom Engraving', description: 'Upload an SVG logo/shape to engrave on the outside bottom surface.' },
-  bottom_svg_depth: { label: 'SVG Engrave Depth', unit: 'mm', group: 'Bottom Engraving', description: 'How deep the bottom SVG is engraved into the base.' },
 };
 
-const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Details', 'Texture', 'Bottom Engraving'];
+const GROUP_ORDER = ['View', 'Resolution', 'Shape', 'Borders', 'Waves', 'Flow', 'Details', 'Texture'];
 
 const MAX_PREVIEW_TRIANGLES = 180000;
 const MAX_INTERACTIVE_TRIANGLES = 70000;
@@ -87,8 +81,6 @@ let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
 let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
-let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, bottom_svg_depth: 1.2, bottom_svg_flip_x: false };
-let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement }
 
 let params = { ...presets.spiral_ribbed };
 let meshPreview = null;
@@ -376,172 +368,15 @@ function sampleTexture(u, v) {
   return 0.5;
 }
 
-function sampleBottomSvgMask(x, y, radiusRef) {
-  if (!bottomSvgMask || radiusRef <= 1e-6) return 0;
-
-  const sampleBilinear = (u, v) => {
-    if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
-    const fx = u * (bottomSvgMask.w - 1);
-    const fy = v * (bottomSvgMask.h - 1);
-    const x0 = Math.floor(fx), y0 = Math.floor(fy);
-    const x1 = Math.min(bottomSvgMask.w - 1, x0 + 1);
-    const y1 = Math.min(bottomSvgMask.h - 1, y0 + 1);
-    const tx = fx - x0;
-    const ty = fy - y0;
-    const i00 = y0 * bottomSvgMask.w + x0;
-    const i10 = y0 * bottomSvgMask.w + x1;
-    const i01 = y1 * bottomSvgMask.w + x0;
-    const i11 = y1 * bottomSvgMask.w + x1;
-    const a = bottomSvgMask.data[i00] * (1 - tx) + bottomSvgMask.data[i10] * tx;
-    const b = bottomSvgMask.data[i01] * (1 - tx) + bottomSvgMask.data[i11] * tx;
-    return a * (1 - ty) + b * ty;
-  };
-
-  const nx = x / radiusRef;
-  const ny = y / radiusRef;
-  const nyMap = bottomSvgState.bottom_svg_flip_x ? -ny : ny;
-  const su = (nx - bottomSvgState.bottom_svg_tx) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
-  const sv = (nyMap - bottomSvgState.bottom_svg_ty) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
-  const u = 0.5 + su * 0.5;
-  const v = 0.5 - sv * 0.5;
-
-  const du = 0.5 / Math.max(2, bottomSvgMask.w);
-  const dv = 0.5 / Math.max(2, bottomSvgMask.h);
-  let acc = 0;
-  acc += sampleBilinear(u - du, v - dv);
-  acc += sampleBilinear(u + du, v - dv);
-  acc += sampleBilinear(u - du, v + dv);
-  acc += sampleBilinear(u + du, v + dv);
-  return acc * 0.25;
-}
-
 function drawBottomViewer() {
   if (!bottomCtx || !bottomCanvas) return;
   const w = bottomCanvas.width;
   const h = bottomCanvas.height;
   bottomCtx.fillStyle = '#0f1012';
   bottomCtx.fillRect(0, 0, w, h);
-
-  const cx = w * 0.5;
-  const cy = h * 0.5;
-  const baseVisualRadius = Math.min(w, h) * 0.42;
-
-  // Match bottom-view scale to the *effective* base width after bottom-band straightening.
-  const effectiveBaseRadius = bottomBorderRadius(params);
-  let profileRefRadius = Math.max(1e-3, effectiveBaseRadius, Number(params.lip_radius || 0), Number(params.neck_radius || 0));
-  for (let i = 0; i <= 48; i++) {
-    const z = i / 48;
-    profileRefRadius = Math.max(profileRefRadius, baseProfile(z, params));
-  }
-  const scale = Math.max(0.45, Math.min(1.0, effectiveBaseRadius / Math.max(1e-3, profileRefRadius)));
-  const r = baseVisualRadius * scale;
-
-  bottomCtx.strokeStyle = '#565a60';
-  bottomCtx.lineWidth = 1.5;
-  bottomCtx.beginPath();
-  bottomCtx.arc(cx, cy, r, 0, Math.PI * 2);
-  bottomCtx.stroke();
-
-  bottomCtx.save();
-  bottomCtx.beginPath();
-  bottomCtx.arc(cx, cy, r, 0, Math.PI * 2);
-  bottomCtx.clip();
-
-  bottomCtx.fillStyle = '#1a1d22';
-  bottomCtx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-
-  if (bottomSvgMask && bottomSvgMask.image) {
-    const size = 2 * r * bottomSvgState.bottom_svg_scale;
-    bottomCtx.globalAlpha = 0.85;
-    bottomCtx.imageSmoothingEnabled = true;
-    bottomCtx.save();
-    bottomCtx.translate(cx, cy);
-    bottomCtx.scale(1, bottomSvgState.bottom_svg_flip_x ? -1 : 1);
-    const dx = bottomSvgState.bottom_svg_tx * r - size * 0.5;
-    const dy = -bottomSvgState.bottom_svg_ty * r - size * 0.5;
-    bottomCtx.drawImage(bottomSvgMask.image, dx, dy, size, size);
-    bottomCtx.restore();
-    bottomCtx.globalAlpha = 1.0;
-  }
-
-  bottomCtx.restore();
-
   bottomCtx.fillStyle = '#bfc6d0';
   bottomCtx.font = '12px Inter, system-ui, sans-serif';
-  bottomCtx.fillText(`Outside bottom view (effective radius: ${effectiveBaseRadius.toFixed(1)} mm)`, 12, h - 12);
-}
-
-function loadBottomSvgFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read SVG file.'));
-    reader.onload = () => {
-      const text = String(reader.result || '');
-      if (!text.toLowerCase().includes('<svg')) {
-        reject(new Error('Selected file is not a valid SVG.'));
-        return;
-      }
-      const blob = new Blob([text], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const c = document.createElement('canvas');
-          c.width = 4096;
-          c.height = 4096;
-          const cctx = c.getContext('2d');
-          cctx.clearRect(0, 0, c.width, c.height);
-          const aspect = Math.max(1e-6, img.width / Math.max(1, img.height));
-          let dw = c.width, dh = Math.round(dw / aspect);
-          if (dh > c.height) { dh = c.height; dw = Math.round(dh * aspect); }
-          const dx = Math.floor((c.width - dw) / 2);
-          const dy = Math.floor((c.height - dh) / 2);
-          cctx.imageSmoothingEnabled = true;
-          cctx.imageSmoothingQuality = 'high';
-          cctx.drawImage(img, dx, dy, dw, dh);
-          const rgba = cctx.getImageData(0, 0, c.width, c.height).data;
-          const maskDark = new Float32Array(c.width * c.height);
-          const maskAlpha = new Float32Array(c.width * c.height);
-          let darkSum = 0;
-          let alphaSum = 0;
-          let darkMax = 0;
-          let alphaMax = 0;
-          for (let i = 0; i < maskDark.length; i++) {
-            const a = rgba[i * 4 + 3] / 255.0;
-            const lum = (0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2]) / 255.0;
-            const dark = a * (1 - lum);
-            maskDark[i] = dark;
-            maskAlpha[i] = a;
-            darkSum += dark;
-            alphaSum += a;
-            if (dark > darkMax) darkMax = dark;
-            if (a > alphaMax) alphaMax = a;
-          }
-
-          const pixelCount = Math.max(1, maskDark.length);
-          const darkMean = darkSum / pixelCount;
-          const alphaMean = alphaSum / pixelCount;
-          const useAlphaFallback = (darkMax < 0.02) || (darkMean < 0.001 && alphaMean > 0.002);
-          const baseMask = useAlphaFallback ? maskAlpha : maskDark;
-          const smoothMask = blurFloatMap(baseMask, c.width, c.height, 1);
-          bottomSvgMask = { w: c.width, h: c.height, data: smoothMask, image: img };
-          drawBottomViewer();
-          rebuildMeshes();
-          resolve()
-        } catch (err) {
-          reject(err);
-        } finally {
-          URL.revokeObjectURL(url);
-        }
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to render SVG image.'));
-      };
-      img.src = url;
-    };
-    reader.readAsText(file);
-  });
+  bottomCtx.fillText('Bottom SVG engraving removed from app.', 12, h * 0.5);
 }
 
 function smoothCircularRing(values, radius, strength, passes) {
@@ -655,33 +490,26 @@ function buildMesh(p, nTheta, nZ) {
   for (let it = 0; it < nTheta; it++) baseRingIdx.push(idx(it, 0));
   const maxBaseRadius = Math.max(...baseRingIdx.map(i => Math.hypot(verts[i][0], verts[i][1])));
 
-  const depth = Math.max(0, bottomSvgState.bottom_svg_depth);
   const radialSteps = Math.max(10, Math.floor(nTheta / 2));
   const ringIndex = Array.from({ length: radialSteps + 1 }, () => new Int32Array(nTheta));
 
   // Outer ring reuses vase base vertices for a watertight stitch.
   for (let it = 0; it < nTheta; it++) ringIndex[radialSteps][it] = baseRingIdx[it];
 
-  // Fill inner rings starting at ir=1. ir=0 would collapse all vertices to the
-  // center point and create degenerate/non-manifold triangles.
+  // Flat bottom cap (engraving removed).
   for (let ir = 1; ir < radialSteps; ir++) {
     const rr = maxBaseRadius * (ir / radialSteps);
     for (let it = 0; it < nTheta; it++) {
       const th = 2 * Math.PI * it / nTheta;
       const x = rr * Math.cos(th);
       const y = rr * Math.sin(th);
-      const mask = sampleBottomSvgMask(x, y, maxBaseRadius);
-      const carveRaw = Math.max(0, Math.min(1, mask));
-      const carve = carveRaw >= 0.12 ? 1 : 0;
-      const zBottom = depth * carve;
+      const zBottom = 0;
       ringIndex[ir][it] = verts.length;
       verts.push([x, y, zBottom]);
     }
   }
 
-  const centerMask = sampleBottomSvgMask(0, 0, maxBaseRadius);
-  const centerCarve = Math.max(0, Math.min(1, centerMask)) >= 0.12 ? 1 : 0;
-  const centerZ = depth * centerCarve;
+  const centerZ = 0;
   const centerIdx = verts.length;
   verts.push([0, 0, centerZ]);
 
@@ -1022,81 +850,6 @@ function addTextureControls() {
   });
 }
 
-function addBottomEngravingControls() {
-  const group = getOrCreateGroup('Bottom Engraving');
-
-  const fileWrap = document.createElement('div');
-  fileWrap.className = 'control';
-  fileWrap.title = FIELD_INFO.bottom_svg_upload.description;
-  const row = document.createElement('div');
-  row.className = 'row';
-  row.innerHTML = '<span>Upload Bottom SVG</span><span></span>';
-  fileWrap.appendChild(row);
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.svg,image/svg+xml';
-  input.addEventListener('focus', () => showHelpFor('bottom_svg_upload'));
-  input.addEventListener('mouseenter', () => showHelpFor('bottom_svg_upload'));
-  input.addEventListener('change', async () => {
-    const f = input.files && input.files[0];
-    if (!f) return;
-    try {
-      await loadBottomSvgFile(f);
-      showHelpFor('bottom_svg_upload');
-    } catch (err) {
-      alert(`Could not load SVG: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      input.value = '';
-    }
-  });
-  fileWrap.appendChild(input);
-  group.appendChild(fileWrap);
-
-  const flipWrap = document.createElement('div');
-  flipWrap.className = 'control';
-  flipWrap.title = FIELD_INFO.bottom_svg_flip_x.description;
-  const flipRow = document.createElement('label');
-  flipRow.className = 'row';
-  const flipText = document.createElement('span');
-  flipText.textContent = FIELD_INFO.bottom_svg_flip_x.label;
-  const flipInput = document.createElement('input');
-  flipInput.type = 'checkbox';
-  flipInput.checked = Boolean(bottomSvgState.bottom_svg_flip_x);
-  flipInput.addEventListener('change', () => {
-    bottomSvgState.bottom_svg_flip_x = flipInput.checked;
-    showHelpFor('bottom_svg_flip_x');
-    drawBottomViewer();
-    rebuildMeshes();
-  });
-  flipInput.addEventListener('focus', () => showHelpFor('bottom_svg_flip_x'));
-  flipInput.addEventListener('mouseenter', () => showHelpFor('bottom_svg_flip_x'));
-  flipRow.appendChild(flipText);
-  flipRow.appendChild(flipInput);
-  flipWrap.appendChild(flipRow);
-  group.appendChild(flipWrap);
-
-  addControl('bottom_svg_scale', 0.1, 1.6, 0.01, bottomSvgState, (v) => {
-    bottomSvgState.bottom_svg_scale = Number(v);
-    drawBottomViewer();
-    rebuildMeshes();
-  });
-  addControl('bottom_svg_tx', -1.0, 1.0, 0.01, bottomSvgState, (v) => {
-    bottomSvgState.bottom_svg_tx = Number(v);
-    drawBottomViewer();
-    rebuildMeshes();
-  });
-  addControl('bottom_svg_ty', -1.0, 1.0, 0.01, bottomSvgState, (v) => {
-    bottomSvgState.bottom_svg_ty = Number(v);
-    drawBottomViewer();
-    rebuildMeshes();
-  });
-  addControl('bottom_svg_depth', 0.0, 4.0, 0.05, bottomSvgState, (v) => {
-    bottomSvgState.bottom_svg_depth = Number(v);
-    rebuildMeshes();
-  });
-}
-
 const presetEl = document.getElementById('preset');
 Object.keys(presets).forEach(name => {
   const option = document.createElement('option');
@@ -1127,7 +880,6 @@ function reloadSliders() {
   }));
 
   addTextureControls();
-  addBottomEngravingControls();
   drawBottomViewer();
   showHelpFor('height');
 }
@@ -1140,7 +892,6 @@ function exportPresetFile() {
     texture: { ...textureState },
     mesh_resolution: { ...meshResolution },
     view: { ...viewState },
-    bottom_engraving: { ...bottomSvgState },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
@@ -1180,14 +931,6 @@ function importPresetFromObject(data) {
     viewState.zoom = Number(data.view.zoom);
   }
 
-  if (data.bottom_engraving && typeof data.bottom_engraving === 'object') {
-    for (const k of ['bottom_svg_scale', 'bottom_svg_tx', 'bottom_svg_ty', 'bottom_svg_depth']) {
-      if (Number.isFinite(Number(data.bottom_engraving[k]))) bottomSvgState[k] = Number(data.bottom_engraving[k]);
-    }
-    if (typeof data.bottom_engraving.bottom_svg_flip_x === 'boolean') {
-      bottomSvgState.bottom_svg_flip_x = data.bottom_engraving.bottom_svg_flip_x;
-    }
-  }
 
   reloadSliders();
   rebuildMeshes();
