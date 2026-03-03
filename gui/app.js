@@ -73,6 +73,7 @@ const FIELD_INFO = {
   bottom_svg_scale: { label: 'SVG Scale', unit: 'x', group: 'Bottom Engraving', description: 'Scale of the SVG engraving on the flat outside base.' },
   bottom_svg_tx: { label: 'SVG Offset X', unit: '', group: 'Bottom Engraving', description: 'Horizontal shift of engraving on bottom base (negative to positive).' },
   bottom_svg_ty: { label: 'SVG Offset Y', unit: '', group: 'Bottom Engraving', description: 'Vertical shift of engraving on bottom base (negative to positive).' },
+  bottom_svg_flip_x: { label: 'Flip Logo Across X Axis', group: 'Bottom Engraving', description: 'Mirrors the bottom SVG over the X axis (vertical flip in the bottom view).' },
   bottom_svg_upload: { label: 'Upload Bottom SVG', group: 'Bottom Engraving', description: 'Upload an SVG logo/shape to engrave on the outside bottom surface.' },
   bottom_svg_depth: { label: 'SVG Engrave Depth', unit: 'mm', group: 'Bottom Engraving', description: 'How deep the bottom SVG is engraved into the base.' },
 };
@@ -86,7 +87,7 @@ let meshResolution = { n_theta: 160, n_z: 200 };
 let viewState = { zoom: 1.0 };
 let textureState = { mode: 'none', depth: 0.16, scaleU: 6.0, scaleV: 6.0 };
 let uploadedTexture = null; // { w, h, data: Float32Array luminance 0..1 }
-let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, bottom_svg_depth: 1.2 };
+let bottomSvgState = { bottom_svg_scale: 0.55, bottom_svg_tx: 0.0, bottom_svg_ty: 0.0, bottom_svg_depth: 1.2, bottom_svg_flip_x: false };
 let bottomSvgMask = null; // { w, h, data: Float32Array 0..1, image: HTMLImageElement }
 
 let params = { ...presets.spiral_ribbed };
@@ -398,8 +399,9 @@ function sampleBottomSvgMask(x, y, radiusRef) {
 
   const nx = x / radiusRef;
   const ny = y / radiusRef;
+  const nyMap = bottomSvgState.bottom_svg_flip_x ? -ny : ny;
   const su = (nx - bottomSvgState.bottom_svg_tx) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
-  const sv = (ny - bottomSvgState.bottom_svg_ty) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
+  const sv = (nyMap - bottomSvgState.bottom_svg_ty) / Math.max(1e-6, bottomSvgState.bottom_svg_scale);
   const u = 0.5 + su * 0.5;
   const v = 0.5 - sv * 0.5;
 
@@ -450,11 +452,15 @@ function drawBottomViewer() {
 
   if (bottomSvgMask && bottomSvgMask.image) {
     const size = 2 * r * bottomSvgState.bottom_svg_scale;
-    const dx = cx + bottomSvgState.bottom_svg_tx * r - size * 0.5;
-    const dy = cy - bottomSvgState.bottom_svg_ty * r - size * 0.5;
     bottomCtx.globalAlpha = 0.85;
     bottomCtx.imageSmoothingEnabled = true;
+    bottomCtx.save();
+    bottomCtx.translate(cx, cy);
+    bottomCtx.scale(1, bottomSvgState.bottom_svg_flip_x ? -1 : 1);
+    const dx = bottomSvgState.bottom_svg_tx * r - size * 0.5;
+    const dy = -bottomSvgState.bottom_svg_ty * r - size * 0.5;
     bottomCtx.drawImage(bottomSvgMask.image, dx, dy, size, size);
+    bottomCtx.restore();
     bottomCtx.globalAlpha = 1.0;
   }
 
@@ -1047,6 +1053,29 @@ function addBottomEngravingControls() {
   fileWrap.appendChild(input);
   group.appendChild(fileWrap);
 
+  const flipWrap = document.createElement('div');
+  flipWrap.className = 'control';
+  flipWrap.title = FIELD_INFO.bottom_svg_flip_x.description;
+  const flipRow = document.createElement('label');
+  flipRow.className = 'row';
+  const flipText = document.createElement('span');
+  flipText.textContent = FIELD_INFO.bottom_svg_flip_x.label;
+  const flipInput = document.createElement('input');
+  flipInput.type = 'checkbox';
+  flipInput.checked = Boolean(bottomSvgState.bottom_svg_flip_x);
+  flipInput.addEventListener('change', () => {
+    bottomSvgState.bottom_svg_flip_x = flipInput.checked;
+    showHelpFor('bottom_svg_flip_x');
+    drawBottomViewer();
+    rebuildMeshes();
+  });
+  flipInput.addEventListener('focus', () => showHelpFor('bottom_svg_flip_x'));
+  flipInput.addEventListener('mouseenter', () => showHelpFor('bottom_svg_flip_x'));
+  flipRow.appendChild(flipText);
+  flipRow.appendChild(flipInput);
+  flipWrap.appendChild(flipRow);
+  group.appendChild(flipWrap);
+
   addControl('bottom_svg_scale', 0.1, 1.6, 0.01, bottomSvgState, (v) => {
     bottomSvgState.bottom_svg_scale = Number(v);
     drawBottomViewer();
@@ -1155,6 +1184,9 @@ function importPresetFromObject(data) {
     for (const k of ['bottom_svg_scale', 'bottom_svg_tx', 'bottom_svg_ty', 'bottom_svg_depth']) {
       if (Number.isFinite(Number(data.bottom_engraving[k]))) bottomSvgState[k] = Number(data.bottom_engraving[k]);
     }
+    if (typeof data.bottom_engraving.bottom_svg_flip_x === 'boolean') {
+      bottomSvgState.bottom_svg_flip_x = data.bottom_engraving.bottom_svg_flip_x;
+    }
   }
 
   reloadSliders();
@@ -1173,14 +1205,106 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   rebuildMeshes();
 });
 
+function cleanMeshForExport(mesh) {
+  const eps = 1e-6;
+  const verts = [];
+  const vMap = new Map();
+  const remap = new Int32Array(mesh.verts.length);
+
+  const keyOf = (x, y, z) => `${Math.round(x / eps)},${Math.round(y / eps)},${Math.round(z / eps)}`;
+  for (let i = 0; i < mesh.verts.length; i++) {
+    const [x, y, z] = mesh.verts[i];
+    const key = keyOf(x, y, z);
+    let ni = vMap.get(key);
+    if (ni === undefined) {
+      ni = verts.length;
+      vMap.set(key, ni);
+      verts.push([x, y, z]);
+    }
+    remap[i] = ni;
+  }
+
+  const faces = [];
+  const faceSet = new Set();
+  for (const [a0, b0, c0] of mesh.faces) {
+    const a = remap[a0], b = remap[b0], c = remap[c0];
+    if (a === b || b === c || a === c) continue;
+    const sorted = [a, b, c].sort((m, n) => m - n).join(',');
+    if (faceSet.has(sorted)) continue;
+    faceSet.add(sorted);
+    faces.push([a, b, c]);
+  }
+
+  const edgeKey = (a, b) => (a < b ? `${a},${b}` : `${b},${a}`);
+  const area2 = ([a, b, c]) => {
+    const A = verts[a], B = verts[b], C = verts[c];
+    const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2];
+    const vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+    const cx = uy * vz - uz * vy;
+    const cy = uz * vx - ux * vz;
+    const cz = ux * vy - uy * vx;
+    return cx * cx + cy * cy + cz * cz;
+  };
+
+  const valid = new Array(faces.length).fill(true);
+  let guard = 0;
+  while (guard++ < 20000) {
+    const edgeFaces = new Map();
+    for (let fi = 0; fi < faces.length; fi++) {
+      if (!valid[fi]) continue;
+      const [a, b, c] = faces[fi];
+      for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+        const k = edgeKey(u, v);
+        if (!edgeFaces.has(k)) edgeFaces.set(k, []);
+        edgeFaces.get(k).push(fi);
+      }
+    }
+
+    let changed = false;
+    for (const list of edgeFaces.values()) {
+      const active = list.filter(i => valid[i]);
+      if (active.length <= 2) continue;
+      active.sort((i, j) => area2(faces[i]) - area2(faces[j]));
+      for (let k = 0; k < active.length - 2; k++) {
+        valid[active[k]] = false;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  const referenced = new Set();
+  const cleanFaces = [];
+  for (let i = 0; i < faces.length; i++) {
+    if (!valid[i]) continue;
+    const f = faces[i];
+    cleanFaces.push(f);
+    referenced.add(f[0]); referenced.add(f[1]); referenced.add(f[2]);
+  }
+
+  const idxMap = new Int32Array(verts.length);
+  idxMap.fill(-1);
+  const cleanVerts = [];
+  for (let i = 0; i < verts.length; i++) {
+    if (!referenced.has(i)) continue;
+    idxMap[i] = cleanVerts.length;
+    cleanVerts.push(verts[i]);
+  }
+
+  const remappedFaces = cleanFaces.map(([a, b, c]) => [idxMap[a], idxMap[b], idxMap[c]]);
+  return { verts: cleanVerts, faces: remappedFaces };
+}
+
 document.getElementById('downloadBtn').addEventListener('click', () => {
   const reqTheta = Math.max(8, Math.floor(meshResolution.n_theta));
   const reqZ = Math.max(8, Math.floor(meshResolution.n_z));
   const full = buildMesh(params, reqTheta, reqZ);
+  const repaired = cleanMeshForExport(full);
 
   const lines = ['# Generated by GUI'];
-  for (const [x, y, z] of full.verts) lines.push(`v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}`);
-  for (const [a, b, c] of full.faces) lines.push(`f ${a + 1} ${b + 1} ${c + 1}`);
+  lines.push(`# export_repair: weld+dedupe+nonmanifold_cleanup`);
+  for (const [x, y, z] of repaired.verts) lines.push(`v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}`);
+  for (const [a, b, c] of repaired.faces) lines.push(`f ${a + 1} ${b + 1} ${c + 1}`);
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
