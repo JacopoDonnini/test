@@ -248,13 +248,23 @@ function applyVerticalRibs(r, th, _z01, p, envelope = 1) {
   const cell = fract(u * count);
   const d = Math.abs(cell - 0.5);
 
-  // Rectangular rib footprint around each centerline, plus optional rounding
-  // only on the outer protruding (short) edge.
-  const halfPlateau = Math.max(0.01, 0.5 * thickness * 0.5);
-  const outerEdge = Math.max(0.003, (0.004 + 0.10 * edgeRoundness) * Math.min(1, thickness * 2.0));
-  const hardRect = d <= halfPlateau ? 1 : 0;
-  const roundedOuter = 1 - smoothstep((d - halfPlateau) / outerEdge);
-  const rib = edgeRoundness <= 1e-6 ? hardRect : Math.max(0, Math.min(1, roundedOuter));
+  // True "plateau" rectangle per rib:
+  // - `thickness` controls full rib width within each periodic cell (0..1 of cell)
+  // - edges stay vertical when roundness=0
+  // - roundness only softens the two outer vertical edges, preserving flat top
+  const halfWidth = Math.max(0.01, thickness * 0.5);
+  const edgeBlend = Math.min(halfWidth * 0.95, 0.002 + 0.10 * edgeRoundness * halfWidth);
+  let rib = 0;
+  if (edgeRoundness <= 1e-6 || edgeBlend <= 1e-6) {
+    rib = d <= halfWidth ? 1 : 0;
+  } else if (d <= (halfWidth - edgeBlend)) {
+    rib = 1;
+  } else if (d >= halfWidth) {
+    rib = 0;
+  } else {
+    const t = (d - (halfWidth - edgeBlend)) / edgeBlend;
+    rib = 1 - smoothstep(t);
+  }
 
   return Math.max(1e-3, r * (1 + depth * env * 0.26 * rib));
 }
