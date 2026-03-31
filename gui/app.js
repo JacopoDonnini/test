@@ -441,7 +441,7 @@ function smoothCircularRing(values, radius, strength, passes) {
 }
 
 function effectiveResolution(maxTriangles) {
-  let nTheta = Math.max(8, Math.floor(meshResolution.n_theta));
+  let nTheta = requiredThetaForRibProfile(params, Math.max(8, Math.floor(meshResolution.n_theta)));
   let nZ = Math.max(8, Math.floor(meshResolution.n_z));
   const tri = () => {
     const side = 2 * nTheta * nZ;
@@ -463,6 +463,18 @@ function effectiveResolution(maxTriangles) {
   }
 
   return { nTheta, nZ };
+}
+
+function requiredThetaForRibProfile(p, requestedTheta) {
+  const base = Math.max(8, Math.floor(Number(requestedTheta || 8)));
+  const ribs = Math.max(0, Math.floor(Number(p.rib_count || 0)));
+  if (ribs <= 0) return base;
+
+  // Keep enough angular samples per rib cell to preserve a flat rectangular top
+  // and two near-vertical side walls in exports.
+  const minSamplesPerRib = 10;
+  const needed = ribs * minSamplesPerRib;
+  return Math.max(base, needed);
 }
 
 
@@ -988,7 +1000,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
-  const reqTheta = Math.max(8, Math.floor(meshResolution.n_theta));
+  const reqTheta = requiredThetaForRibProfile(params, Math.max(8, Math.floor(meshResolution.n_theta)));
   const reqZ = Math.max(8, Math.floor(meshResolution.n_z));
   const full = buildMesh(params, reqTheta, reqZ);
 
