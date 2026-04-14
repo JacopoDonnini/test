@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Vase Generator GUI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel">
+      <h1>Parametric Vase GUI</h1>
+      <p>Design your vase with friendly grouped controls. Hover any label to see what it does.</p>
+
+      <label>Base preset
+        <select id="preset"></select>
+      </label>
+
+      <div id="paramHelp" class="help-card">
+        <strong id="helpTitle">Parameter help</strong>
+        <div id="helpText">Hover a control label to see a short explanation.</div>
+      </div>
+
+      <div id="controls"></div>
+
+      <div class="actions">
+        <button id="resetBtn">Reset to preset</button>
+        <button id="downloadBtn">Download OBJ</button>
+      </div>
+      <div class="actions">
+        <button id="exportPresetBtn">Export preset</button>
+        <button id="importPresetBtn">Import preset</button>
+      </div>
+      <input id="importPresetInput" type="file" accept="application/json,.json" hidden />
+      <small>Top is open, bottom is closed.</small>
+    </aside>
+
+    <main>
+      <div class="viewer-stack">
+        <canvas id="view"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
