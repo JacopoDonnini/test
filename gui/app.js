@@ -64,7 +64,7 @@ const FIELD_INFO = {
   bubble_row_start: { label: 'Bubble Row Start', unit: '', group: 'Details', description: 'Normalized height where the first row is placed (0 bottom → 1 top).' },
   bubble_row_end: { label: 'Bubble Row End', unit: '', group: 'Details', description: 'Normalized height where the last row is placed.' },
   bubble_row_offset: { label: 'Row Phase Offset', unit: '', group: 'Details', description: 'Angular offset added per row to stagger rows symmetrically.' },
-  bubble_row_smoothness: { label: 'Row Bubble Smoothness', unit: '', group: 'Details', description: 'How soft/blended each row bubble is (higher = smoother/wider, now with extended max range).' },
+  bubble_row_smoothness: { label: 'Row Bubble Smoothness', unit: '', group: 'Details', description: 'Smooths vertical transitions between neighboring bubble rows (higher = softer row-to-row borders).' },
   rib_count: { label: 'Vertical Rib Count', unit: '', group: 'Details', description: 'Number of straight vertical fins around the vase.' },
   rib_depth: { label: 'Vertical Rib Depth', unit: '', group: 'Details', description: 'How far each rib protrudes from the surface.' },
   rib_roundness: { label: 'Rib Outer Edge Roundness', unit: '', group: 'Details', description: 'Rounds the protruding short edge of each rectangular rib (0 = sharp, 1 = very rounded).' },
@@ -220,6 +220,9 @@ function applyBubbleField(r, th, z01, p, bubbleSet, envelope = 1) {
   if (depth <= 1e-6 || env <= 1e-6) return r;
   const size = Math.max(0.02, Number(p.bubble_size || 0.1));
   const smoothness = Math.max(0.2, Number(p.bubble_row_smoothness || 1.0));
+  const rowMode = Math.max(0, Math.floor(Number(p.bubble_rows || 0))) > 0
+    && Math.max(0, Math.floor(Number(p.bubbles_per_row || 0))) > 0;
+  const zSmooth = rowMode ? smoothness : 1.0;
 
   const u = th / (2 * Math.PI);
   let field = 0;
@@ -227,8 +230,10 @@ function applyBubbleField(r, th, z01, p, bubbleSet, envelope = 1) {
     let du = Math.abs(u - b.u);
     du = Math.min(du, 1 - du);
     const dz = z01 - b.z;
-    const d2 = (du * du + dz * dz) / Math.max(1e-6, size * size);
-    const g = b.amp * Math.exp(-d2 * (6.0 / smoothness));
+    const du2 = (du * du) / Math.max(1e-6, size * size);
+    const dz2 = (dz * dz) / Math.max(1e-6, size * size * zSmooth * zSmooth);
+    const d2 = du2 + dz2;
+    const g = b.amp * Math.exp(-d2 * 6.0);
     if (g > field) field = g;
   }
 
