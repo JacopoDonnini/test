@@ -23,7 +23,7 @@ const sliders = [
   ['wave_roundness', 0.0, 1.0, 0.01],
   ['waves', 0, 72, 1], ['wave_amp', 0.0, 0.60, 0.005], ['wave_z_falloff', 0.0, 0.49, 0.005],
   ['twist', 0, 16, 0.1], ['twist_curve', -6, 6, 0.1], ['skew_wave', -1.0, 1.0, 0.02], ['seed_phase', 0, 12.5664, 0.01],
-  ['bubble_count', 0, 120, 1], ['bubble_depth', 0.0, 1.8, 0.01], ['bubble_size', 0.01, 0.60, 0.01], ['bubble_rows', 0, 8, 1], ['bubbles_per_row', 0, 48, 1], ['bubble_row_start', 0.0, 1.0, 0.01], ['bubble_row_end', 0.0, 1.0, 0.01], ['bubble_row_offset', 0.0, 1.0, 0.01], ['bubble_row_smoothness', 0.2, 2.5, 0.01],
+  ['bubble_count', 0, 120, 1], ['bubble_depth', 0.0, 1.8, 0.01], ['bubble_size', 0.01, 0.60, 0.01], ['bubble_rows', 0, 8, 1], ['bubbles_per_row', 0, 48, 1], ['bubble_row_start', 0.0, 1.0, 0.01], ['bubble_row_end', 0.0, 1.0, 0.01], ['bubble_row_offset', 0.0, 1.0, 0.01], ['bubble_row_smoothness', 0.2, 12.0, 0.01],
   ['rib_count', 0, 120, 1], ['rib_depth', 0.0, 0.8, 0.01], ['rib_thickness', 0.04, 0.90, 0.01], ['rib_roundness', 0.0, 1.0, 0.01],
 ];
 
@@ -64,7 +64,7 @@ const FIELD_INFO = {
   bubble_row_start: { label: 'Bubble Row Start', unit: '', group: 'Details', description: 'Normalized height where the first row is placed (0 bottom → 1 top).' },
   bubble_row_end: { label: 'Bubble Row End', unit: '', group: 'Details', description: 'Normalized height where the last row is placed.' },
   bubble_row_offset: { label: 'Row Phase Offset', unit: '', group: 'Details', description: 'Angular offset added per row to stagger rows symmetrically.' },
-  bubble_row_smoothness: { label: 'Row Bubble Smoothness', unit: '', group: 'Details', description: 'How soft/blended each row bubble is (higher = smoother/wider).' },
+  bubble_row_smoothness: { label: 'Row Bubble Smoothness', unit: '', group: 'Details', description: 'How soft/blended each row bubble is (higher = smoother/wider, now with extended max range).' },
   rib_count: { label: 'Vertical Rib Count', unit: '', group: 'Details', description: 'Number of straight vertical fins around the vase.' },
   rib_depth: { label: 'Vertical Rib Depth', unit: '', group: 'Details', description: 'How far each rib protrudes from the surface.' },
   rib_roundness: { label: 'Rib Outer Edge Roundness', unit: '', group: 'Details', description: 'Rounds the protruding short edge of each rectangular rib (0 = sharp, 1 = very rounded).' },
